@@ -1,46 +1,59 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   MapPin,
   Phone,
   MessageCircle,
   Clock,
-  CheckCircle2,
-  Navigation
+  Navigation,
+  ArrowRight,
+  RotateCcw,
 } from 'lucide-react';
 import { GYM_CONTACT } from '../../data/gymData';
 import type { ContactFormData } from '../../types';
 import { InstagramIcon } from '../common/InstagramIcon';
+import {
+  INTERESTED_IN_OPTIONS,
+  MEMBERSHIP_PLAN_OPTIONS,
+  formatWhatsAppMessage,
+  buildWhatsAppUrl,
+  openWhatsApp,
+  validateIndianMobile,
+  mapTopicToInterestedIn,
+  WHATSAPP_DISPLAY_NUMBER,
+} from '../../utils/whatsapp';
 
 interface ContactProps {
   preselectedOption?: string;
 }
 
-const INTERESTED_OPTIONS = [
-  'General Gym Enquiry',
-  'Membership',
-  'Personal Training',
-  'Zumba',
-  'Yoga',
-  'Diet Plan',
-  'Other',
-];
-
 export const Contact: React.FC<ContactProps> = ({ preselectedOption }) => {
   const [formData, setFormData] = useState<ContactFormData>({
     fullName: '',
     phone: '',
-    email: '',
-    planOrFacility: preselectedOption || 'General Gym Enquiry',
+    interestedIn: 'General Gym Enquiry',
+    membershipPlan: MEMBERSHIP_PLAN_OPTIONS[3].label, // 1 Year default
     message: '',
   });
 
-  const [errors, setErrors] = useState<Partial<Record<keyof ContactFormData, string>>>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submittedData, setSubmittedData] = useState<ContactFormData | null>(null);
+  const [errors, setErrors] = useState<Partial<Record<'fullName' | 'phone' | 'interestedIn' | 'membershipPlan', string>>>({});
+  const [isRedirected, setIsRedirected] = useState(false);
+  const [generatedWhatsAppUrl, setGeneratedWhatsAppUrl] = useState('');
+
+  useEffect(() => {
+    if (preselectedOption) {
+      const mapped = mapTopicToInterestedIn(preselectedOption);
+      setFormData((prev) => ({
+        ...prev,
+        interestedIn: mapped.interestedIn,
+        membershipPlan: mapped.membershipPlan || prev.membershipPlan || MEMBERSHIP_PLAN_OPTIONS[3].label,
+        message: mapped.defaultMessage || prev.message || '',
+      }));
+    }
+  }, [preselectedOption]);
 
   const validateForm = () => {
-    const newErrors: Partial<Record<keyof ContactFormData, string>> = {};
+    const newErrors: Partial<Record<'fullName' | 'phone' | 'interestedIn' | 'membershipPlan', string>> = {};
 
     if (!formData.fullName.trim()) {
       newErrors.fullName = 'Please enter your full name.';
@@ -48,18 +61,17 @@ export const Contact: React.FC<ContactProps> = ({ preselectedOption }) => {
       newErrors.fullName = 'Name must be at least 2 characters.';
     }
 
-    const phoneClean = formData.phone.replace(/[\s\-\(\)]/g, '');
-    const phoneRegex = /^(\+91)?[6-9]\d{9}$/;
-    if (!phoneClean) {
-      newErrors.phone = 'Please enter your contact mobile number.';
-    } else if (!phoneRegex.test(phoneClean)) {
-      newErrors.phone = 'Please enter a valid 10-digit mobile number.';
+    const mobileValidation = validateIndianMobile(formData.phone);
+    if (!mobileValidation.isValid) {
+      newErrors.phone = mobileValidation.error || 'Please enter a valid 10-digit mobile number.';
     }
 
-    if (!formData.message.trim()) {
-      newErrors.message = 'Please enter your message.';
-    } else if (formData.message.trim().length < 4) {
-      newErrors.message = 'Message should be at least 4 characters.';
+    if (!formData.interestedIn) {
+      newErrors.interestedIn = 'Please select a topic.';
+    }
+
+    if (formData.interestedIn === 'Membership' && !formData.membershipPlan) {
+      newErrors.membershipPlan = 'Please select a membership plan.';
     }
 
     setErrors(newErrors);
@@ -70,26 +82,19 @@ export const Contact: React.FC<ContactProps> = ({ preselectedOption }) => {
     e.preventDefault();
     if (!validateForm()) return;
 
-    setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setSubmittedData({ ...formData });
-      setFormData({
-        fullName: '',
-        phone: '',
-        email: '',
-        planOrFacility: 'General Gym Enquiry',
-        message: '',
-      });
-      setErrors({});
-    }, 500);
-  };
+    const mobileValidation = validateIndianMobile(formData.phone);
+    const cleanData: ContactFormData = {
+      ...formData,
+      phone: mobileValidation.cleaned || formData.phone.trim(),
+    };
 
-  const constructWhatsAppLink = (data: ContactFormData) => {
-    const text = encodeURIComponent(
-      `Hello ICON FITNESS, I submitted an enquiry on your website.\n\nName: ${data.fullName}\nPhone: ${data.phone}\nInterested in: ${data.planOrFacility}\nMessage: ${data.message}`
-    );
-    return `https://wa.me/918669022902?text=${text}`;
+    const message = formatWhatsAppMessage(cleanData);
+    const url = buildWhatsAppUrl(message);
+    setGeneratedWhatsAppUrl(url);
+
+    // Open WhatsApp
+    openWhatsApp(message);
+    setIsRedirected(true);
   };
 
   return (
@@ -106,7 +111,7 @@ export const Contact: React.FC<ContactProps> = ({ preselectedOption }) => {
             <span className="text-[#ED101B]">STARTS HERE.</span>
           </h2>
           <p className="text-[#A1A1A1] text-base sm:text-lg font-normal leading-relaxed">
-            Have questions about our facilities, membership or personal training? Connect with ICON FITNESS.
+            Have questions about our facilities, membership or personal training? Connect directly with ICON FITNESS via WhatsApp or phone.
           </p>
         </div>
 
@@ -133,6 +138,30 @@ export const Contact: React.FC<ContactProps> = ({ preselectedOption }) => {
                   </p>
                 </div>
               </div>
+            </div>
+
+            {/* Official WhatsApp Banner */}
+            <div className="p-6 rounded-md bg-[#171717] border border-[#303030] space-y-3">
+              <span className="font-oswald text-xs font-bold uppercase tracking-widest text-[#25D366] flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-[#25D366]" />
+                OFFICIAL WHATSAPP CHANNEL
+              </span>
+              <a
+                href={GYM_CONTACT.whatsappUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-between p-3.5 rounded bg-[#222222] border border-[#303030] hover:border-[#25D366] transition-colors group"
+              >
+                <div className="flex items-center gap-2.5">
+                  <MessageCircle className="w-5 h-5 text-[#25D366]" />
+                  <span className="text-sm font-oswald font-bold text-white tracking-wider">
+                    {WHATSAPP_DISPLAY_NUMBER}
+                  </span>
+                </div>
+                <span className="text-xs font-oswald text-[#25D366] font-bold uppercase tracking-wider group-hover:translate-x-1 transition-transform">
+                  CHAT NOW &rarr;
+                </span>
+              </a>
             </div>
 
             {/* Phone Numbers */}
@@ -224,50 +253,91 @@ export const Contact: React.FC<ContactProps> = ({ preselectedOption }) => {
             {/* Contact Enquiry Form */}
             <div className="p-6 sm:p-8 rounded-md bg-[#171717] border border-[#303030]">
               <div className="mb-6">
+                <span className="font-oswald text-[10px] font-bold uppercase tracking-widest text-[#25D366] block mb-1">
+                  DIRECT ENQUIRY
+                </span>
                 <h3 className="font-display text-2xl font-black uppercase text-white tracking-wide">
                   SEND AN ENQUIRY
                 </h3>
                 <p className="text-xs text-[#A1A1A1] mt-1">
-                  Fill in your details below and we will get back to you promptly.
+                  Fill in your details below to enquire directly with ICON FITNESS via WhatsApp.
                 </p>
               </div>
 
               <AnimatePresence mode="wait">
-                {submittedData ? (
+                {isRedirected ? (
+                  /* Pre-Redirection Notice State */
                   <motion.div
-                    key="success"
+                    key="redirected"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="py-6 text-center space-y-5"
+                    className="py-6 space-y-6"
                   >
-                    <div className="w-14 h-14 rounded-full bg-[#ED101B]/15 border border-[#ED101B] flex items-center justify-center text-[#ED101B] mx-auto">
-                      <CheckCircle2 className="w-7 h-7 stroke-[2.5]" />
-                    </div>
-                    <div>
-                      <h4 className="font-display text-2xl font-black uppercase text-white">
-                        ENQUIRY RECEIVED
+                    <div className="text-center space-y-3">
+                      <div className="w-16 h-16 rounded-full bg-[#25D366]/15 border-2 border-[#25D366] flex items-center justify-center text-[#25D366] mx-auto shadow-lg shadow-[#25D366]/20">
+                        <MessageCircle className="w-9 h-9 fill-[#25D366]" />
+                      </div>
+                      <h4 className="font-display text-2xl font-black uppercase text-white tracking-wide">
+                        CONNECT ON WHATSAPP
                       </h4>
-                      <p className="text-xs text-[#A1A1A1] mt-1">
-                        Thank you, {submittedData.fullName}. Phase 1 frontend demo state recorded.
+                    </div>
+
+                    {/* Redirection Alert Notice */}
+                    <div className="p-4 bg-[#25D366]/10 border border-[#25D366]/40 rounded-md">
+                      <p className="text-sm text-neutral-200 text-center leading-relaxed font-medium">
+                        You're being redirected to WhatsApp. Review your message and press{' '}
+                        <strong className="text-[#25D366] font-bold">Send</strong> to complete your enquiry.
                       </p>
                     </div>
-                    <div className="flex flex-col sm:flex-row gap-3">
+
+                    {/* Enquiry Details Summary */}
+                    <div className="p-4 bg-[#080808] rounded-md border border-[#303030] text-xs text-[#A1A1A1] space-y-2">
+                      <div className="flex justify-between border-b border-[#222222] pb-1.5">
+                        <span className="font-oswald uppercase text-neutral-400">Name:</span>
+                        <span className="text-white font-medium">{formData.fullName}</span>
+                      </div>
+                      <div className="flex justify-between border-b border-[#222222] pb-1.5">
+                        <span className="font-oswald uppercase text-neutral-400">Mobile:</span>
+                        <span className="text-white font-medium">{formData.phone}</span>
+                      </div>
+                      <div className="flex justify-between border-b border-[#222222] pb-1.5">
+                        <span className="font-oswald uppercase text-neutral-400">Interested In:</span>
+                        <span className="text-[#ED101B] font-bold">{formData.interestedIn}</span>
+                      </div>
+                      {formData.interestedIn === 'Membership' && formData.membershipPlan && (
+                        <div className="flex justify-between border-b border-[#222222] pb-1.5">
+                          <span className="font-oswald uppercase text-neutral-400">Plan:</span>
+                          <span className="text-white font-medium">{formData.membershipPlan}</span>
+                        </div>
+                      )}
+                      {formData.message && (
+                        <div className="pt-1">
+                          <span className="font-oswald uppercase text-neutral-400 block mb-0.5">Note:</span>
+                          <span className="text-neutral-300 italic">{formData.message}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex flex-col sm:flex-row gap-3 pt-2">
                       <a
-                        href={constructWhatsAppLink(submittedData)}
+                        href={generatedWhatsAppUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex-1 py-3 px-4 rounded bg-[#25D366] text-black font-oswald text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2"
+                        className="flex-1 py-3.5 px-4 rounded bg-[#25D366] hover:bg-[#20ba59] text-black font-oswald text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-lg shadow-[#25D366]/25"
                       >
                         <MessageCircle className="w-4 h-4 fill-black" />
-                        <span>CONTINUE ON WHATSAPP</span>
+                        <span>OPEN WHATSAPP AGAIN</span>
+                        <ArrowRight className="w-4 h-4 stroke-[2.5]" />
                       </a>
                       <button
                         type="button"
-                        onClick={() => setSubmittedData(null)}
-                        className="py-3 px-4 rounded bg-[#222222] text-white font-oswald text-xs font-bold uppercase tracking-wider hover:bg-[#303030]"
+                        onClick={() => setIsRedirected(false)}
+                        className="py-3 px-5 rounded bg-[#222222] hover:bg-[#2c2c2c] text-neutral-300 hover:text-white font-oswald text-xs font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-1.5"
                       >
-                        RESET FORM
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span>EDIT DETAILS</span>
                       </button>
                     </div>
                   </motion.div>
@@ -282,7 +352,10 @@ export const Contact: React.FC<ContactProps> = ({ preselectedOption }) => {
                         id="contactFullName"
                         type="text"
                         value={formData.fullName}
-                        onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                        onChange={(e) => {
+                          setFormData({ ...formData, fullName: e.target.value });
+                          if (errors.fullName) setErrors({ ...errors, fullName: undefined });
+                        }}
                         placeholder="Your full name"
                         className={`w-full px-3.5 py-2.5 rounded bg-[#080808] border ${
                           errors.fullName ? 'border-red-500' : 'border-[#303030]'
@@ -291,85 +364,118 @@ export const Contact: React.FC<ContactProps> = ({ preselectedOption }) => {
                       {errors.fullName && <p className="text-red-400 text-xs mt-1">{errors.fullName}</p>}
                     </div>
 
-                    {/* Mobile Number & Email */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label htmlFor="contactPhone" className="block text-xs font-oswald font-bold uppercase tracking-wider text-[#A1A1A1] mb-1.5">
-                          Mobile Number *
-                        </label>
-                        <input
-                          id="contactPhone"
-                          type="tel"
-                          value={formData.phone}
-                          onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                          placeholder="10-digit mobile"
-                          className={`w-full px-3.5 py-2.5 rounded bg-[#080808] border ${
-                            errors.phone ? 'border-red-500' : 'border-[#303030]'
-                          } text-white text-sm focus:outline-none focus:border-[#ED101B]`}
-                        />
-                        {errors.phone && <p className="text-red-400 text-xs mt-1">{errors.phone}</p>}
-                      </div>
-
-                      <div>
-                        <label htmlFor="contactEmail" className="block text-xs font-oswald font-bold uppercase tracking-wider text-[#A1A1A1] mb-1.5">
-                          Email Address (Optional)
-                        </label>
-                        <input
-                          id="contactEmail"
-                          type="email"
-                          value={formData.email}
-                          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                          placeholder="name@example.com"
-                          className="w-full px-3.5 py-2.5 rounded bg-[#080808] border border-[#303030] text-white text-sm focus:outline-none focus:border-[#ED101B]"
-                        />
-                      </div>
+                    {/* Mobile Number */}
+                    <div>
+                      <label htmlFor="contactPhone" className="block text-xs font-oswald font-bold uppercase tracking-wider text-[#A1A1A1] mb-1.5">
+                        Mobile Number *
+                      </label>
+                      <input
+                        id="contactPhone"
+                        type="tel"
+                        value={formData.phone}
+                        onChange={(e) => {
+                          setFormData({ ...formData, phone: e.target.value });
+                          if (errors.phone) setErrors({ ...errors, phone: undefined });
+                        }}
+                        placeholder="10-digit mobile number (e.g. 9637545941)"
+                        className={`w-full px-3.5 py-2.5 rounded bg-[#080808] border ${
+                          errors.phone ? 'border-red-500' : 'border-[#303030]'
+                        } text-white text-sm focus:outline-none focus:border-[#ED101B]`}
+                      />
+                      {errors.phone && <p className="text-red-400 text-xs mt-1">{errors.phone}</p>}
                     </div>
 
                     {/* Interested In */}
                     <div>
                       <label htmlFor="contactInterest" className="block text-xs font-oswald font-bold uppercase tracking-wider text-[#A1A1A1] mb-1.5">
-                        Interested In
+                        Interested In *
                       </label>
                       <select
                         id="contactInterest"
-                        value={formData.planOrFacility}
-                        onChange={(e) => setFormData({ ...formData, planOrFacility: e.target.value })}
+                        value={formData.interestedIn}
+                        onChange={(e) => {
+                          setFormData({
+                            ...formData,
+                            interestedIn: e.target.value,
+                            membershipPlan:
+                              e.target.value === 'Membership'
+                                ? formData.membershipPlan || MEMBERSHIP_PLAN_OPTIONS[3].label
+                                : formData.membershipPlan,
+                          });
+                          if (errors.interestedIn) setErrors({ ...errors, interestedIn: undefined });
+                        }}
                         className="w-full px-3 py-2.5 rounded bg-[#080808] border border-[#303030] text-white text-xs sm:text-sm focus:outline-none focus:border-[#ED101B]"
                       >
-                        {INTERESTED_OPTIONS.map((opt) => (
+                        {INTERESTED_IN_OPTIONS.map((opt) => (
                           <option key={opt} value={opt}>
                             {opt}
                           </option>
                         ))}
                       </select>
+                      {errors.interestedIn && <p className="text-red-400 text-xs mt-1">{errors.interestedIn}</p>}
                     </div>
 
-                    {/* Message */}
+                    {/* Membership Plan (Visible when Membership is selected) */}
+                    {formData.interestedIn === 'Membership' && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                      >
+                        <label
+                          htmlFor="contactMembershipPlan"
+                          className="block text-xs font-oswald font-bold uppercase tracking-wider text-[#ED101B] mb-1.5"
+                        >
+                          Membership Plan *
+                        </label>
+                        <select
+                          id="contactMembershipPlan"
+                          value={formData.membershipPlan}
+                          onChange={(e) => {
+                            setFormData({ ...formData, membershipPlan: e.target.value });
+                            if (errors.membershipPlan) setErrors({ ...errors, membershipPlan: undefined });
+                          }}
+                          className="w-full px-3 py-2.5 rounded bg-[#080808] border border-[#ED101B]/50 text-white text-xs sm:text-sm focus:outline-none focus:border-[#ED101B]"
+                        >
+                          {MEMBERSHIP_PLAN_OPTIONS.map((p) => (
+                            <option key={p.id} value={p.label}>
+                              {p.label}
+                            </option>
+                          ))}
+                        </select>
+                        {errors.membershipPlan && <p className="text-red-400 text-xs mt-1">{errors.membershipPlan}</p>}
+                      </motion.div>
+                    )}
+
+                    {/* Message (Optional) */}
                     <div>
                       <label htmlFor="contactMessage" className="block text-xs font-oswald font-bold uppercase tracking-wider text-[#A1A1A1] mb-1.5">
-                        Message *
+                        Message (Optional)
                       </label>
                       <textarea
                         id="contactMessage"
                         rows={3}
                         value={formData.message}
                         onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                        placeholder="Tell us what you would like to know..."
-                        className={`w-full px-3.5 py-2.5 rounded bg-[#080808] border ${
-                          errors.message ? 'border-red-500' : 'border-[#303030]'
-                        } text-white text-sm focus:outline-none focus:border-[#ED101B] resize-none`}
+                        placeholder="Tell us what you would like to know (batch timings, personal training, etc.)..."
+                        className="w-full px-3.5 py-2.5 rounded bg-[#080808] border border-[#303030] text-white text-sm focus:outline-none focus:border-[#ED101B] resize-none"
                       />
-                      {errors.message && <p className="text-red-400 text-xs mt-1">{errors.message}</p>}
                     </div>
 
-                    {/* Submit Button: SEND ENQUIRY */}
-                    <button
-                      type="submit"
-                      disabled={isSubmitting}
-                      className="w-full py-3.5 rounded text-xs font-oswald font-black uppercase tracking-wider text-white bg-[#ED101B] hover:bg-[#B9000B] transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-                    >
-                      {isSubmitting ? <span>SENDING...</span> : <span>SEND ENQUIRY</span>}
-                    </button>
+                    {/* Submit Button: ENQUIRE ON WHATSAPP */}
+                    <div className="pt-2">
+                      <button
+                        type="submit"
+                        className="w-full py-3.5 rounded text-xs font-oswald font-black uppercase tracking-wider text-black bg-[#25D366] hover:bg-[#20ba59] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-[#25D366]/20"
+                      >
+                        <MessageCircle className="w-4 h-4 fill-black" />
+                        <span>ENQUIRE ON WHATSAPP</span>
+                      </button>
+
+                      <p className="text-[11px] text-[#A1A1A1] text-center mt-2.5">
+                        Clicking opens WhatsApp with your pre-filled enquiry. Review before sending.
+                      </p>
+                    </div>
                   </form>
                 )}
               </AnimatePresence>

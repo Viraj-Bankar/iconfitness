@@ -125,7 +125,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenEnquiry }) => {
 
               <button
                 type="button"
-                onClick={() => onOpenEnquiry('General Enquiry')}
+                onClick={() => onOpenEnquiry('General Gym Enquiry')}
                 className="relative inline-flex items-center justify-center px-6 py-2.5 rounded-md text-sm font-oswald font-black uppercase tracking-wider text-white bg-[#ED101B] hover:bg-[#B9000B] transition-all duration-200 cursor-pointer shadow-md"
               >
                 <span>ENQUIRE NOW</span>
@@ -137,7 +137,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenEnquiry }) => {
             <div className="flex lg:hidden items-center gap-2.5">
               <button
                 type="button"
-                onClick={() => onOpenEnquiry('General Enquiry')}
+                onClick={() => onOpenEnquiry('General Gym Enquiry')}
                 className="px-3 py-1.5 text-xs font-oswald font-black uppercase tracking-wider text-white bg-[#ED101B] rounded shadow-md"
               >
                 ENQUIRE
@@ -198,7 +198,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenEnquiry }) => {
                   type="button"
                   onClick={() => {
                     setMobileMenuOpen(false);
-                    onOpenEnquiry('General Enquiry');
+                    onOpenEnquiry('General Gym Enquiry');
                   }}
                   className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded bg-[#ED101B] text-white text-sm font-oswald font-black uppercase tracking-wider hover:bg-[#B9000B]"
                 >

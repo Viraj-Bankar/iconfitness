@@ -58,7 +58,7 @@ export interface WhyChooseItem {
 export interface ContactFormData {
   fullName: string;
   phone: string;
-  email?: string;
-  planOrFacility: string;
-  message: string;
+  interestedIn: string;
+  membershipPlan?: string;
+  message?: string;
 }
