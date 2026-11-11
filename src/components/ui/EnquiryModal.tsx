@@ -405,7 +405,7 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
                     rows={2}
                     value={formData.message}
                     onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                    placeholder="Preferred batch timings (morning 5:30 AM or evening), questions, etc."
+                    placeholder="Preferred batch timings (morning 5:30 AM - 11 AM or evening), questions, etc."
                     className="w-full px-3.5 py-2.5 rounded bg-[#080808] border border-[#303030] text-white text-sm focus:outline-none focus:border-[#ED101B] resize-none"
                   />
                 </div>

@@ -34,7 +34,7 @@ export const GYM_CONTACT = {
   spaceSize: '4,000 SQ. FT.',
   facilitiesCount: '6+',
   timings: {
-    morning: '5:30 AM',
+    morning: '5:30 AM - 11 AM',
     evening: '5:00 PM – 10:00 PM',
   },
 };

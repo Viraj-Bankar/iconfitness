@@ -50,7 +50,7 @@ A modern, high-performance, responsive commercial website for **ICON FITNESS**, 
 ## Operating Hours & Contact Information
 
 - **Timings**:
-  - Morning Session: **5:30 AM**
+  - Morning Session: **5:30 AM - 11 AM**
   - Evening Session: **5:00 PM – 10:00 PM**
 - **Address**: Dehu – Alandi Road, Moshi Gaon, Moshi, Pimpri-Chinchwad, Maharashtra – 412105.
 - **Plus Code**: MVHC+8R, Pimpri-Chinchwad, Maharashtra
