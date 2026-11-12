@@ -1,6 +1,6 @@
 # ICON FITNESS — Modern Minimal Fitness Website (Dark Edition)
 
-A modern, high-performance, responsive commercial website for **ICON FITNESS**, located on Dehu – Alandi Road, Moshi Gaon, Moshi, Pimpri-Chinchwad, Maharashtra.
+A modern, high-performance, responsive commercial web application for **ICON FITNESS**, located on Dehu – Alandi Road, Moshi Gaon, Moshi, Pimpri-Chinchwad, Maharashtra.
 
 ---
 
@@ -22,6 +22,28 @@ A modern, high-performance, responsive commercial website for **ICON FITNESS**, 
   - *YOUR FITNESS. OUR PASSION.*
   - *DISCIPLINE TODAY. SUCCESS TOMORROW.*
   - *TRANSFORM YOURSELF.*
+
+---
+
+## Core Features
+
+1. **WhatsApp-Only Direct Enquiry Engine**:
+   - Official Business Number: `+91 9637545941` (`919637545941`).
+   - Modal and footer forms with interest selection and auto-populated membership rate cards.
+   - 100% email-free client direct messaging.
+2. **Owner Gallery Management Portal (`/admin/gallery`)**:
+   - Private, mobile-friendly owner portal with Supabase Authentication (`/admin/login`).
+   - Direct image/video uploads to Supabase Storage bucket (`gym-gallery`).
+   - Draft and live status control with one-click "PUBLISH TO WEBSITE".
+   - Caption editing and item deletion.
+3. **Customer Review System & Moderation**:
+   - Public review submission with rate-limiting and spam protection.
+   - Dual-source reviews: Verified Google Business Profile rating and authentic website reviews.
+   - Protected owner moderation modal to approve, reject, or delete submitted reviews.
+4. **Hardened Security & Database RLS**:
+   - Supabase Row Level Security (RLS) on `public.gallery_items`, `public.reviews`, and `storage.objects`.
+   - Server-controlled authorization (`isAuthorizedOwner`) validating against official owner allowlist or `app_metadata`.
+   - Never trusts client-editable `user_metadata`.
 
 ---
 
@@ -63,41 +85,52 @@ A modern, high-performance, responsive commercial website for **ICON FITNESS**, 
 
 ## Tech Stack
 
-- **React 19** + **Vite**
+- **React 19** + **Vite 8**
 - **TypeScript**
 - **Tailwind CSS**
+- **Supabase** (Auth, Database, Storage)
 - **Framer Motion**
 - **Lucide React**
 
 ---
 
-## Getting Started
+## Production Deployment Guide (e.g. Vercel)
 
-### Prerequisites
+### 1. Database Setup (Supabase)
+Execute the SQL migrations in the Supabase SQL Editor:
+1. `supabase/migrations/20261112000000_create_reviews_table.sql`
+2. `supabase/migrations/20261112010000_create_gallery_and_storage.sql`
+3. `supabase/migrations/20261112020000_harden_owner_rls_and_storage.sql`
 
-- Node.js (v18 or higher recommended)
-- npm
+### 2. Environment Variables Configuration
+Set the following environment variables in your hosting provider (e.g. Vercel Dashboard -> Project Settings -> Environment Variables):
 
-### Installation
+| Variable | Description |
+|---|---|
+| `VITE_SUPABASE_URL` | Your Supabase project URL (`https://your-project.supabase.co`) |
+| `VITE_SUPABASE_ANON_KEY` | Your Supabase public anon key |
+| `VITE_OWNER_EMAIL` | Official gym owner email (e.g. `owner@iconfitness.com`) |
+| `VITE_GOOGLE_PLACE_ID` | Optional Google Place ID for Moshi location |
+| `VITE_GOOGLE_WRITE_REVIEW_URL` | Direct Google review submission link |
+
+### 3. Vercel SPA Routing
+The repository includes `vercel.json` with rewrite rules (`/(.*)` -> `/index.html`) to ensure deep routing for `/admin/login` and `/admin/gallery` works cleanly.
+
+---
+
+## Local Development
 
 ```bash
-# Clone the repository
-git clone https://github.com/Viraj-Bankar/iconfitness.git
-
-# Navigate to project folder
-cd iconfitness
-
 # Install dependencies
 npm install
 
-# Start development server
+# Start local dev server
 npm run dev
-```
 
-### Production Build
-
-```bash
+# Run production build
 npm run build
+
+# Preview build locally
 npm run preview
 ```
 
