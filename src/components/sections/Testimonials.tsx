@@ -344,7 +344,7 @@ export const Testimonials: React.FC = () => {
             className="text-neutral-500 hover:text-[#ED101B] transition-colors flex items-center gap-1.5 focus:outline-none cursor-pointer"
           >
             <ShieldAlert className="w-3.5 h-3.5" />
-            <span>Staff Review Moderation Portal</span>
+            <span>Owner Review Moderation Portal</span>
           </button>
         </div>
 

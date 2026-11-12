@@ -35,6 +35,10 @@ export interface GalleryItem {
   image: string;
   caption: string;
   isRealGymPhoto?: boolean;
+  mediaType?: 'image' | 'video';
+  videoUrl?: string;
+  isPublished?: boolean;
+  createdAt?: string;
 }
 
 export interface ReviewItem {

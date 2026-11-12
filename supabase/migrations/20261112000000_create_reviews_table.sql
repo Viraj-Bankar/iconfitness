@@ -61,14 +61,26 @@ CREATE POLICY "Public can insert pending website reviews"
     TO anon, authenticated
     WITH CHECK (status = 'pending' AND source = 'website');
 
--- Policy C: Authenticated staff / admins can SELECT, UPDATE, DELETE all reviews
+-- Policy C: Only authorized gym owner or staff can manage reviews (SELECT, UPDATE, DELETE)
+-- SECURITY: Checks email allowlist or server-controlled app_metadata ONLY (never user-editable user_metadata)
 DROP POLICY IF EXISTS "Authenticated users can manage all reviews" ON public.reviews;
-CREATE POLICY "Authenticated users can manage all reviews"
+DROP POLICY IF EXISTS "Authorized owner can manage all reviews" ON public.reviews;
+CREATE POLICY "Authorized owner can manage all reviews"
     ON public.reviews
     FOR ALL
     TO authenticated
-    USING (true)
-    WITH CHECK (true);
+    USING (
+        auth.role() = 'authenticated' AND (
+            coalesce(auth.jwt() ->> 'email', '') = 'owner@iconfitness.com'
+            OR coalesce(auth.jwt() -> 'app_metadata' ->> 'role', '') IN ('owner', 'admin')
+        )
+    )
+    WITH CHECK (
+        auth.role() = 'authenticated' AND (
+            coalesce(auth.jwt() ->> 'email', '') = 'owner@iconfitness.com'
+            OR coalesce(auth.jwt() -> 'app_metadata' ->> 'role', '') IN ('owner', 'admin')
+        )
+    );
 
 -- Policy D: Service role bypass for backend administration
 DROP POLICY IF EXISTS "Service role has unrestricted review access" ON public.reviews;
@@ -79,10 +91,11 @@ CREATE POLICY "Service role has unrestricted review access"
     USING (true)
     WITH CHECK (true);
 
--- 6. Initial Verified Seed Reviews
-INSERT INTO public.reviews (customer_name, rating, review_title, review_text, visit_type, source, status, created_at)
+-- 6. Initial Verified Seed Reviews with fixed deterministic UUIDs for safe idempotent re-runs
+INSERT INTO public.reviews (id, customer_name, rating, review_title, review_text, visit_type, source, status, created_at)
 VALUES
 (
+    '00000000-0000-0000-0000-000000000001',
     'Swapnil Deshmukh',
     5,
     'Outstanding workout floor and turf area',
@@ -93,6 +106,7 @@ VALUES
     NOW() - INTERVAL '5 days'
 ),
 (
+    '00000000-0000-0000-0000-000000000002',
     'Priyanka Shinde',
     5,
     'Energetic Zumba and clean steam bath',
@@ -103,6 +117,7 @@ VALUES
     NOW() - INTERVAL '12 days'
 ),
 (
+    '00000000-0000-0000-0000-000000000003',
     'Mahesh Patil',
     5,
     'Knowledgeable and supportive trainers',
@@ -112,5 +127,4 @@ VALUES
     'approved',
     NOW() - INTERVAL '20 days'
 )
-ON CONFLICT DO NOTHING;
-
+ON CONFLICT (id) DO NOTHING;

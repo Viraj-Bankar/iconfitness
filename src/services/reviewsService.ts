@@ -1,4 +1,5 @@
 import { getSupabase, isSupabaseConfigured } from './supabase';
+import { getActiveOwnerSession } from './authService';
 import type { Review, NewReviewInput, ReviewStats, ReviewStatus } from '../types/review';
 import { GYM_CONTACT } from '../data/gymData';
 
@@ -6,17 +7,15 @@ import { GYM_CONTACT } from '../data/gymData';
 const LOCAL_STORAGE_KEY = 'icon_fitness_dev_reviews';
 const LAST_SUBMISSION_TIME_KEY = 'icon_fitness_last_review_sub';
 
-export const ADMIN_AUTH_TOKEN_DEFAULT = 'iconadmin2026';
-
-export function getAdminPasscode(): string {
-  const env = (typeof import.meta !== 'undefined' && (import.meta as any).env) || {};
-  const envToken = env.VITE_ADMIN_REVIEW_TOKEN as string | undefined;
-  return envToken && envToken.trim().length > 0 ? envToken.trim() : ADMIN_AUTH_TOKEN_DEFAULT;
-}
-
-export function verifyAdminToken(token: string): boolean {
-  if (!token) return false;
-  return token.trim() === getAdminPasscode();
+/**
+ * Ensures an active verified gym owner session exists before allowing review moderation.
+ */
+async function requireReviewModeratorSession() {
+  const session = await getActiveOwnerSession();
+  if (!session) {
+    throw new Error('Unauthorized: An active gym owner session is required to moderate customer reviews.');
+  }
+  return session;
 }
 
 /**
@@ -248,7 +247,7 @@ export async function getApprovedWebsiteReviews(): Promise<Review[]> {
 
     if (error) {
       console.error('Supabase fetch approved reviews error:', error);
-      // Fallback to local store
+      // Fallback to initial verified reviews
       return getLocalFallbackReviews().filter(
         (r) => r.source === 'website' && r.status === 'approved'
       );
@@ -264,12 +263,10 @@ export async function getApprovedWebsiteReviews(): Promise<Review[]> {
 
 /**
  * Fetches all reviews for the Admin Dashboard (pending, approved, rejected).
- * Requires valid admin authorization.
+ * Requires authenticated owner session.
  */
-export async function getAdminReviews(adminToken: string): Promise<Review[]> {
-  if (!verifyAdminToken(adminToken)) {
-    throw new Error('Unauthorized: Invalid admin token.');
-  }
+export async function getAdminReviews(): Promise<Review[]> {
+  await requireReviewModeratorSession();
 
   const supabase = getSupabase();
 
@@ -281,7 +278,7 @@ export async function getAdminReviews(adminToken: string): Promise<Review[]> {
 
     if (error) {
       console.error('Supabase fetch admin reviews error:', error);
-      return getLocalFallbackReviews();
+      throw new Error(`Failed to load reviews: ${error.message}`);
     }
 
     return (data || []) as Review[];
@@ -292,16 +289,13 @@ export async function getAdminReviews(adminToken: string): Promise<Review[]> {
 
 /**
  * Updates review status (e.g. approve or reject).
- * Requires admin authorization.
+ * Requires authenticated owner session.
  */
 export async function updateReviewStatus(
   reviewId: string,
-  newStatus: ReviewStatus,
-  adminToken: string
+  newStatus: ReviewStatus
 ): Promise<{ success: boolean; message: string }> {
-  if (!verifyAdminToken(adminToken)) {
-    throw new Error('Unauthorized: Invalid admin token.');
-  }
+  await requireReviewModeratorSession();
 
   const supabase = getSupabase();
 
@@ -331,15 +325,12 @@ export async function updateReviewStatus(
 
 /**
  * Permanently deletes a review.
- * Requires admin authorization.
+ * Requires authenticated owner session.
  */
 export async function deleteReview(
-  reviewId: string,
-  adminToken: string
+  reviewId: string
 ): Promise<{ success: boolean; message: string }> {
-  if (!verifyAdminToken(adminToken)) {
-    throw new Error('Unauthorized: Invalid admin token.');
-  }
+  await requireReviewModeratorSession();
 
   const supabase = getSupabase();
 

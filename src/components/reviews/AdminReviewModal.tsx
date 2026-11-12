@@ -11,15 +11,21 @@ import {
   RefreshCw,
   LogOut,
   AlertCircle,
-  ShieldAlert,
+  ShieldCheck,
+  Loader2,
 } from 'lucide-react';
 import type { Review, ReviewStatus } from '../../types/review';
 import {
-  verifyAdminToken,
   getAdminReviews,
   updateReviewStatus,
   deleteReview,
 } from '../../services/reviewsService';
+import {
+  getActiveOwnerSession,
+  loginOwner,
+  logoutOwner,
+  DEFAULT_OWNER_EMAIL,
+} from '../../services/authService';
 
 interface AdminReviewModalProps {
   isOpen: boolean;
@@ -27,18 +33,22 @@ interface AdminReviewModalProps {
   onReviewsUpdated?: () => void;
 }
 
-const ADMIN_SESSION_KEY = 'icon_fitness_admin_session';
-
 export const AdminReviewModal: React.FC<AdminReviewModalProps> = ({
   isOpen,
   onClose,
   onReviewsUpdated,
 }) => {
-  const [authToken, setAuthToken] = useState<string>('');
-  const [inputPasscode, setInputPasscode] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [ownerEmail, setOwnerEmail] = useState('');
+
+  // Login form state
+  const [emailInput, setEmailInput] = useState(DEFAULT_OWNER_EMAIL);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
+  // Reviews data state
   const [reviews, setReviews] = useState<Review[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
@@ -49,24 +59,11 @@ export const AdminReviewModal: React.FC<AdminReviewModalProps> = ({
   const [filterRating, setFilterRating] = useState<'all' | number>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Check saved session on mount
-  useEffect(() => {
-    try {
-      const saved = sessionStorage.getItem(ADMIN_SESSION_KEY);
-      if (saved && verifyAdminToken(saved)) {
-        setAuthToken(saved);
-        setIsAuthenticated(true);
-      }
-    } catch {
-      // Ignore sessionStorage errors
-    }
-  }, []);
-
-  const loadReviews = useCallback(async (token: string) => {
+  const loadReviews = useCallback(async () => {
     setIsLoading(true);
     setStatusMessage(null);
     try {
-      const data = await getAdminReviews(token);
+      const data = await getAdminReviews();
       setReviews(data);
     } catch (err: unknown) {
       console.error('Error fetching admin reviews:', err);
@@ -76,13 +73,31 @@ export const AdminReviewModal: React.FC<AdminReviewModalProps> = ({
     }
   }, []);
 
+  // Check active Supabase owner session on mount or modal open
   useEffect(() => {
-    if (isAuthenticated && authToken && isOpen) {
-      loadReviews(authToken);
+    let isMounted = true;
+    if (isOpen) {
+      setIsCheckingAuth(true);
+      setAuthError(null);
+      getActiveOwnerSession().then((session) => {
+        if (!isMounted) return;
+        if (session) {
+          setIsAuthenticated(true);
+          setOwnerEmail(session.email);
+          loadReviews();
+        } else {
+          setIsAuthenticated(false);
+          setOwnerEmail('');
+        }
+        setIsCheckingAuth(false);
+      });
     }
-  }, [isAuthenticated, authToken, isOpen, loadReviews]);
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, loadReviews]);
 
-  // Handle ESC key
+  // Handle ESC key and scroll lock
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -101,45 +116,46 @@ export const AdminReviewModal: React.FC<AdminReviewModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError(null);
 
-    if (!inputPasscode.trim()) {
-      setAuthError('Please enter admin access passcode.');
+    if (!emailInput.trim() || !passwordInput.trim()) {
+      setAuthError('Please enter both owner email and password.');
       return;
     }
 
-    if (verifyAdminToken(inputPasscode.trim())) {
-      const token = inputPasscode.trim();
-      setAuthToken(token);
-      setIsAuthenticated(true);
-      try {
-        sessionStorage.setItem(ADMIN_SESSION_KEY, token);
-      } catch {
-        // Ignore
+    setIsLoggingIn(true);
+    try {
+      const res = await loginOwner(emailInput, passwordInput);
+      if (res.success && res.user) {
+        setIsAuthenticated(true);
+        setOwnerEmail(res.user.email);
+        setPasswordInput('');
+        await loadReviews();
+      } else {
+        setAuthError(res.error || 'Authentication failed. Access denied.');
       }
-      loadReviews(token);
-    } else {
-      setAuthError('Invalid passcode. Access denied.');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Login error.';
+      setAuthError(msg);
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await logoutOwner();
     setIsAuthenticated(false);
-    setAuthToken('');
-    setInputPasscode('');
-    try {
-      sessionStorage.removeItem(ADMIN_SESSION_KEY);
-    } catch {
-      // Ignore
-    }
+    setOwnerEmail('');
+    setReviews([]);
+    setPasswordInput('');
   };
 
   const handleStatusChange = async (reviewId: string, newStatus: ReviewStatus) => {
     setActionLoadingId(reviewId);
     try {
-      await updateReviewStatus(reviewId, newStatus, authToken);
+      await updateReviewStatus(reviewId, newStatus);
       setReviews((prev) =>
         prev.map((r) => (r.id === reviewId ? { ...r, status: newStatus } : r))
       );
@@ -160,7 +176,7 @@ export const AdminReviewModal: React.FC<AdminReviewModalProps> = ({
 
     setActionLoadingId(reviewId);
     try {
-      await deleteReview(reviewId, authToken);
+      await deleteReview(reviewId);
       setReviews((prev) => prev.filter((r) => r.id !== reviewId));
       setStatusMessage('Review deleted successfully.');
       if (onReviewsUpdated) onReviewsUpdated();
@@ -218,7 +234,7 @@ export const AdminReviewModal: React.FC<AdminReviewModalProps> = ({
               </div>
               <div>
                 <span className="font-oswald text-[10px] font-bold uppercase tracking-widest text-[#ED101B] block">
-                  STAFF &amp; MANAGEMENT PORTAL
+                  OWNER &amp; MANAGEMENT PORTAL
                 </span>
                 <h3 className="font-display text-xl sm:text-2xl font-black uppercase text-white tracking-wide">
                   CUSTOMER REVIEW MODERATION
@@ -228,15 +244,21 @@ export const AdminReviewModal: React.FC<AdminReviewModalProps> = ({
 
             <div className="flex items-center gap-2">
               {isAuthenticated && (
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="p-2 rounded bg-[#222222] text-[#A1A1A1] hover:text-white hover:bg-neutral-800 transition-colors text-xs font-oswald flex items-center gap-1.5"
-                  title="Logout"
-                >
-                  <LogOut className="w-3.5 h-3.5 text-[#ED101B]" />
-                  <span className="hidden sm:inline">LOGOUT</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <span className="hidden md:inline-flex items-center gap-1.5 text-[11px] font-oswald text-neutral-400 bg-[#080808] px-2.5 py-1 rounded border border-[#303030]">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>{ownerEmail || 'Owner Active'}</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="p-2 rounded bg-[#222222] text-[#A1A1A1] hover:text-white hover:bg-neutral-800 transition-colors text-xs font-oswald flex items-center gap-1.5"
+                    title="Logout"
+                  >
+                    <LogOut className="w-3.5 h-3.5 text-[#ED101B]" />
+                    <span className="hidden sm:inline">LOGOUT</span>
+                  </button>
+                </div>
               )}
               <button
                 type="button"
@@ -249,18 +271,23 @@ export const AdminReviewModal: React.FC<AdminReviewModalProps> = ({
             </div>
           </div>
 
-          {!isAuthenticated ? (
-            /* Login View */
-            <div className="py-8 max-w-md mx-auto w-full text-center space-y-6">
-              <div className="w-16 h-16 rounded-full bg-[#ED101B]/10 border border-[#ED101B]/30 text-[#ED101B] flex items-center justify-center mx-auto">
-                <ShieldAlert className="w-8 h-8 stroke-[2]" />
+          {isCheckingAuth ? (
+            <div className="py-20 text-center text-neutral-400 space-y-3">
+              <Loader2 className="w-8 h-8 animate-spin mx-auto text-[#ED101B]" />
+              <p className="font-oswald text-xs uppercase tracking-wider">Verifying owner authentication...</p>
+            </div>
+          ) : !isAuthenticated ? (
+            /* Supabase Owner Sign-In View */
+            <div className="py-6 max-w-md mx-auto w-full text-center space-y-5">
+              <div className="w-14 h-14 rounded-full bg-[#ED101B]/10 border border-[#ED101B]/30 text-[#ED101B] flex items-center justify-center mx-auto">
+                <Lock className="w-7 h-7 stroke-[2]" />
               </div>
               <div>
                 <h4 className="font-display text-2xl font-black uppercase text-white tracking-wide">
-                  AUTHENTICATION REQUIRED
+                  OWNER AUTHENTICATION REQUIRED
                 </h4>
                 <p className="text-xs text-[#A1A1A1] mt-1.5 leading-relaxed">
-                  Only authorized ICON FITNESS gym staff may approve, reject, or manage customer reviews.
+                  Sign in with your verified Supabase gym owner credentials to approve, reject, or delete customer reviews.
                 </p>
               </div>
 
@@ -271,35 +298,67 @@ export const AdminReviewModal: React.FC<AdminReviewModalProps> = ({
                 </div>
               )}
 
-              <form onSubmit={handleLogin} className="space-y-4 text-left">
+              <form onSubmit={handleLogin} className="space-y-4 text-left" noValidate>
                 <div>
                   <label
-                    htmlFor="adminPasscodeInput"
+                    htmlFor="ownerReviewEmailInput"
                     className="block text-xs font-oswald font-bold uppercase tracking-wider text-[#A1A1A1] mb-1.5"
                   >
-                    Admin Passcode
+                    Owner Email
                   </label>
                   <input
-                    id="adminPasscodeInput"
-                    type="password"
-                    value={inputPasscode}
-                    onChange={(e) => setInputPasscode(e.target.value)}
-                    placeholder="Enter management passcode"
+                    id="ownerReviewEmailInput"
+                    type="email"
+                    autoComplete="email"
+                    value={emailInput}
+                    onChange={(e) => setEmailInput(e.target.value)}
+                    placeholder="owner@iconfitness.com"
                     className="w-full px-3.5 py-2.5 rounded bg-[#080808] border border-[#303030] text-white text-sm focus:outline-none focus:border-[#ED101B]"
-                    autoFocus
+                    required
                   />
-                  <p className="text-[11px] text-neutral-500 mt-1.5">
-                    Configured via <code>VITE_ADMIN_REVIEW_TOKEN</code> (default: <code>iconadmin2026</code>).
-                  </p>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="ownerReviewPasswordInput"
+                    className="block text-xs font-oswald font-bold uppercase tracking-wider text-[#A1A1A1] mb-1.5"
+                  >
+                    Owner Password
+                  </label>
+                  <input
+                    id="ownerReviewPasswordInput"
+                    type="password"
+                    autoComplete="current-password"
+                    value={passwordInput}
+                    onChange={(e) => setPasswordInput(e.target.value)}
+                    placeholder="Enter owner password"
+                    className="w-full px-3.5 py-2.5 rounded bg-[#080808] border border-[#303030] text-white text-sm focus:outline-none focus:border-[#ED101B]"
+                    required
+                  />
                 </div>
 
                 <button
                   type="submit"
-                  className="w-full py-3 rounded bg-[#ED101B] hover:bg-[#B9000B] text-white font-oswald text-xs font-black uppercase tracking-wider transition-colors shadow-md cursor-pointer"
+                  disabled={isLoggingIn}
+                  className="w-full py-3.5 rounded bg-[#ED101B] hover:bg-[#B9000B] text-white font-oswald text-xs font-black uppercase tracking-wider transition-colors shadow-md cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
                 >
-                  UNLOCK DASHBOARD
+                  {isLoggingIn ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>SIGNING IN...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Lock className="w-4 h-4" />
+                      <span>SIGN IN &amp; MODERATE REVIEWS</span>
+                    </>
+                  )}
                 </button>
               </form>
+
+              <div className="p-2.5 bg-[#080808] rounded border border-[#262626] text-[11px] text-neutral-500">
+                <span>Direct Supabase Auth. Passcodes are no longer accepted.</span>
+              </div>
             </div>
           ) : (
             /* Authenticated Review Moderation View */
@@ -371,7 +430,7 @@ export const AdminReviewModal: React.FC<AdminReviewModalProps> = ({
                     onClick={() => setFilterStatus('all')}
                     className={`px-3 py-1.5 rounded text-xs font-oswald font-bold uppercase tracking-wider transition-colors ${
                       filterStatus === 'all'
-                        ? 'bg-[#ED101B] text-white font-black'
+                        ? 'bg-white text-black font-black'
                         : 'text-neutral-400 hover:text-white'
                     }`}
                   >
@@ -381,171 +440,168 @@ export const AdminReviewModal: React.FC<AdminReviewModalProps> = ({
 
                 <button
                   type="button"
-                  onClick={() => loadReviews(authToken)}
+                  onClick={loadReviews}
                   disabled={isLoading}
-                  className="p-2 rounded bg-[#222222] border border-[#303030] text-neutral-300 hover:text-white text-xs font-oswald flex items-center gap-1.5"
-                  title="Refresh Reviews"
+                  className="px-3 py-1.5 rounded bg-[#222222] hover:bg-neutral-800 text-neutral-300 text-xs font-oswald flex items-center gap-1.5 transition-colors"
                 >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-                  <span className="hidden sm:inline">REFRESH</span>
+                  <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-[#ED101B]' : ''}`} />
+                  <span>REFRESH</span>
                 </button>
               </div>
 
-              {/* Filters Bar: Search & Star Rating */}
-              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-                <div className="sm:col-span-8 relative">
-                  <Search className="w-4 h-4 text-neutral-500 absolute left-3 top-3" />
+              {/* Search & Rating Filter Bar */}
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 text-neutral-500 absolute left-3 top-2.5" />
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search reviewer name, title or review text..."
-                    className="w-full pl-9 pr-3 py-2 rounded bg-[#080808] border border-[#303030] text-white text-xs placeholder:text-neutral-600 focus:outline-none focus:border-[#ED101B]"
+                    placeholder="Search by customer name, keyword or activity..."
+                    className="w-full pl-9 pr-4 py-2 rounded bg-[#080808] border border-[#303030] text-white text-xs focus:outline-none focus:border-[#ED101B]"
                   />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-3 top-2 text-neutral-500 hover:text-white text-xs"
+                    >
+                      &times;
+                    </button>
+                  )}
                 </div>
 
-                <div className="sm:col-span-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-oswald text-neutral-400 uppercase">Rating:</span>
                   <select
                     value={filterRating}
-                    onChange={(e) =>
-                      setFilterRating(e.target.value === 'all' ? 'all' : Number(e.target.value))
-                    }
-                    className="w-full px-3 py-2 rounded bg-[#080808] border border-[#303030] text-white text-xs focus:outline-none focus:border-[#ED101B]"
+                    onChange={(e) => setFilterRating(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+                    className="px-2.5 py-2 rounded bg-[#080808] border border-[#303030] text-white text-xs focus:outline-none focus:border-[#ED101B]"
                   >
-                    <option value="all">All Star Ratings</option>
-                    <option value="5">5 Stars Only</option>
-                    <option value="4">4 Stars Only</option>
-                    <option value="3">3 Stars Only</option>
-                    <option value="2">2 Stars Only</option>
-                    <option value="1">1 Star Only</option>
+                    <option value="all">All Stars</option>
+                    <option value="5">5 Stars</option>
+                    <option value="4">4 Stars</option>
+                    <option value="3">3 Stars</option>
+                    <option value="2">2 Stars</option>
+                    <option value="1">1 Star</option>
                   </select>
                 </div>
               </div>
 
-              {/* Reviews Moderation List */}
-              <div className="flex-1 overflow-y-auto pr-1 space-y-3 min-h-[280px]">
+              {/* Reviews List */}
+              <div className="flex-1 overflow-y-auto pr-1 space-y-3 min-h-[260px]">
                 {isLoading ? (
                   <div className="py-16 text-center text-neutral-400 space-y-2">
                     <RefreshCw className="w-6 h-6 animate-spin mx-auto text-[#ED101B]" />
-                    <p className="text-xs font-oswald uppercase tracking-wider">Loading reviews...</p>
+                    <p className="font-oswald text-xs uppercase">Loading reviews from database...</p>
                   </div>
                 ) : filteredReviews.length === 0 ? (
-                  <div className="py-16 text-center text-neutral-500 p-8 rounded bg-[#080808] border border-[#262626]">
-                    <p className="font-display text-lg uppercase text-neutral-400">No reviews found</p>
-                    <p className="text-xs mt-1">No reviews match the current status and search filters.</p>
+                  <div className="py-16 text-center text-neutral-400 space-y-2 bg-[#080808] rounded border border-[#262626]">
+                    <p className="font-oswald text-xs uppercase text-neutral-400">
+                      No {filterStatus !== 'all' ? filterStatus : ''} reviews found.
+                    </p>
                   </div>
                 ) : (
-                  filteredReviews.map((rev) => {
-                    const isPending = rev.status === 'pending';
-                    const isApproved = rev.status === 'approved';
-                    const isRejected = rev.status === 'rejected';
-                    const isActioning = actionLoadingId === rev.id;
-
+                  filteredReviews.map((r) => {
+                    const isActing = actionLoadingId === r.id;
                     return (
                       <div
-                        key={rev.id}
-                        className={`p-4 rounded-md bg-[#080808] border transition-colors ${
-                          isPending
-                            ? 'border-amber-500/40 bg-amber-500/[0.02]'
-                            : isApproved
-                            ? 'border-emerald-500/30'
-                            : 'border-red-500/30 opacity-75'
-                        }`}
+                        key={r.id}
+                        className="p-4 rounded bg-[#080808] border border-[#262626] hover:border-[#3a3a3a] transition-colors space-y-3"
                       >
-                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-2">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h5 className="font-bold text-white text-sm">{rev.customer_name}</h5>
-                              {/* Status Badge */}
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-bold text-white text-sm">{r.customer_name}</span>
                               <span
-                                className={`text-[10px] font-oswald font-black uppercase px-2 py-0.5 rounded tracking-wider ${
-                                  isPending
-                                    ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
-                                    : isApproved
+                                className={`text-[10px] font-oswald uppercase px-2 py-0.5 rounded font-bold ${
+                                  r.status === 'approved'
                                     ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
-                                    : 'bg-red-500/20 text-red-400 border border-red-500/40'
+                                    : r.status === 'rejected'
+                                    ? 'bg-red-500/20 text-red-400 border border-red-500/40'
+                                    : 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
                                 }`}
                               >
-                                {rev.status}
+                                {r.status}
                               </span>
-
-                              {/* Source Badge */}
-                              <span className="text-[10px] font-oswald uppercase text-neutral-400 bg-[#171717] px-2 py-0.5 rounded border border-[#303030]">
-                                {rev.source}
+                              <span className="text-[10px] font-oswald uppercase text-neutral-500">
+                                {r.source === 'google' ? 'Google Review' : 'Website Review'}
                               </span>
                             </div>
 
-                            <div className="flex items-center gap-3 text-xs text-neutral-400 mt-1">
-                              <div className="flex text-[#FFB800]">
-                                {[...Array(rev.rating)].map((_, i) => (
-                                  <Star key={i} className="w-3.5 h-3.5 fill-[#FFB800]" />
+                            <div className="flex items-center gap-2 text-xs">
+                              <div className="flex items-center text-amber-400">
+                                {Array.from({ length: 5 }).map((_, i) => (
+                                  <Star
+                                    key={i}
+                                    className={`w-3.5 h-3.5 ${
+                                      i < r.rating ? 'fill-amber-400 text-amber-400' : 'text-neutral-700'
+                                    }`}
+                                  />
                                 ))}
                               </div>
-                              {rev.visit_type && (
-                                <span className="font-oswald text-[11px] text-[#ED101B]">
-                                  {rev.visit_type}
-                                </span>
+                              {r.visit_type && (
+                                <span className="text-[11px] text-neutral-400">• {r.visit_type}</span>
                               )}
                               <span className="text-[11px] text-neutral-500">
-                                {new Date(rev.created_at).toLocaleString('en-IN', {
+                                • {new Date(r.created_at).toLocaleDateString('en-IN', {
                                   day: 'numeric',
                                   month: 'short',
                                   year: 'numeric',
-                                  hour: '2-digit',
-                                  minute: '2-digit',
                                 })}
                               </span>
                             </div>
                           </div>
 
                           {/* Action Buttons */}
-                          <div className="flex items-center gap-1.5 self-end sm:self-auto">
-                            {!isApproved && (
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            {r.status !== 'approved' && (
                               <button
                                 type="button"
-                                disabled={isActioning}
-                                onClick={() => handleStatusChange(rev.id, 'approved')}
-                                className="px-2.5 py-1.5 rounded bg-emerald-500/20 hover:bg-emerald-500 text-emerald-400 hover:text-black border border-emerald-500/40 text-[11px] font-oswald font-black uppercase tracking-wider transition-colors flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                                title="Approve Review"
+                                onClick={() => handleStatusChange(r.id, 'approved')}
+                                disabled={isActing}
+                                className="px-2.5 py-1 rounded bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600 hover:text-white border border-emerald-600/40 text-[11px] font-oswald uppercase tracking-wider flex items-center gap-1 transition-colors disabled:opacity-50"
+                                title="Approve review"
                               >
-                                <CheckCircle className="w-3 h-3" />
-                                <span>APPROVE</span>
+                                <CheckCircle className="w-3.5 h-3.5" />
+                                <span className="hidden sm:inline">Approve</span>
                               </button>
                             )}
 
-                            {!isRejected && (
+                            {r.status !== 'rejected' && (
                               <button
                                 type="button"
-                                disabled={isActioning}
-                                onClick={() => handleStatusChange(rev.id, 'rejected')}
-                                className="px-2.5 py-1.5 rounded bg-amber-500/20 hover:bg-amber-500 text-amber-400 hover:text-black border border-amber-500/40 text-[11px] font-oswald font-bold uppercase tracking-wider transition-colors flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                                title="Reject Review"
+                                onClick={() => handleStatusChange(r.id, 'rejected')}
+                                disabled={isActing}
+                                className="px-2.5 py-1 rounded bg-amber-600/20 text-amber-400 hover:bg-amber-600 hover:text-white border border-amber-600/40 text-[11px] font-oswald uppercase tracking-wider flex items-center gap-1 transition-colors disabled:opacity-50"
+                                title="Reject review"
                               >
-                                <XCircle className="w-3 h-3" />
-                                <span>REJECT</span>
+                                <XCircle className="w-3.5 h-3.5" />
+                                <span className="hidden sm:inline">Reject</span>
                               </button>
                             )}
 
                             <button
                               type="button"
-                              disabled={isActioning}
-                              onClick={() => handleDelete(rev.id, rev.customer_name)}
-                              className="p-1.5 rounded bg-neutral-900 hover:bg-red-500 text-neutral-400 hover:text-white border border-[#303030] transition-colors cursor-pointer disabled:opacity-50"
-                              title="Permanently Delete Review"
+                              onClick={() => handleDelete(r.id, r.customer_name)}
+                              disabled={isActing}
+                              className="p-1 rounded bg-neutral-900 text-neutral-500 hover:text-red-400 hover:bg-red-500/20 border border-neutral-800 transition-colors disabled:opacity-50"
+                              title="Delete permanently"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         </div>
 
-                        {rev.review_title && (
-                          <p className="font-bold text-white text-xs uppercase mb-1">
-                            "{rev.review_title}"
+                        {/* Title and Review Body */}
+                        <div>
+                          {r.review_title && (
+                            <h5 className="font-bold text-white text-xs mb-1">{r.review_title}</h5>
+                          )}
+                          <p className="text-xs text-[#A1A1A1] leading-relaxed whitespace-pre-line">
+                            {r.review_text}
                           </p>
-                        )}
-                        <p className="text-xs text-neutral-300 leading-relaxed whitespace-pre-line">
-                          {rev.review_text}
-                        </p>
+                        </div>
                       </div>
                     );
                   })
@@ -558,4 +614,3 @@ export const AdminReviewModal: React.FC<AdminReviewModalProps> = ({
     </AnimatePresence>
   );
 };
-
