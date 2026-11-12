@@ -14,6 +14,7 @@ export const Footer: React.FC = () => {
     { name: 'About', href: '#about' },
     { name: 'Facilities', href: '#facilities' },
     { name: 'Membership', href: '#membership' },
+    { name: 'Reviews', href: '#reviews' },
     { name: 'Gallery', href: '#gallery' },
     { name: 'Contact', href: '#contact' },
   ];
