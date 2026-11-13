@@ -1,10 +1,10 @@
-import type { GalleryCategory } from './index';
+import type { GalleryCategory, GalleryPredefinedCategory } from './index';
 
 export interface OwnerGalleryMedia {
   id: string;
   title?: string;
   caption?: string;
-  category: GalleryCategory;
+  category: GalleryPredefinedCategory | GalleryCategory;
   categoryLabel: string;
   mediaUrl: string;
   mediaType: 'image' | 'video';
@@ -23,7 +23,7 @@ export interface UploadQueueItem {
   mediaType: 'image' | 'video';
   title?: string;
   caption?: string;
-  category?: GalleryCategory;
+  category: GalleryPredefinedCategory;
   progress: number;
   status: 'queued' | 'uploading' | 'success' | 'error';
   errorMessage?: string;

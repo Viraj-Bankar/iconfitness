@@ -4,6 +4,7 @@ import { ChevronRight, Target, Apple, Users } from 'lucide-react';
 import { FACILITIES } from '../../data/gymData';
 import type { Facility } from '../../types';
 import { IconHelper } from '../ui/IconHelper';
+import { ImageWithFallback } from '../common/ImageWithFallback';
 
 interface FacilitiesProps {
   onSelectFacility: (facility: Facility) => void;
@@ -44,9 +45,10 @@ export const Facilities: React.FC<FacilitiesProps> = ({ onSelectFacility, onEnqu
               >
                 {/* Image Top Area */}
                 <div className="relative h-56 w-full overflow-hidden bg-[#080808]">
-                  <img
+                  <ImageWithFallback
                     src={facility.image}
                     alt={facility.title}
+                    category={facility.category}
                     className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500 filter brightness-90"
                     loading="lazy"
                   />

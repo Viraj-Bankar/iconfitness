@@ -1,23 +1,17 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Maximize2, X, ChevronLeft, ChevronRight, CheckCircle2, Play } from 'lucide-react';
 import { GALLERY_ITEMS } from '../../data/gymData';
-import type { GalleryCategory, GalleryItem } from '../../types';
+import {
+  type GalleryItem,
+  GALLERY_PREDEFINED_CATEGORIES,
+  normalizeGalleryCategory,
+} from '../../types';
 import { getPublishedGalleryItems } from '../../services/galleryService';
-
-const CATEGORIES: { label: string; value: GalleryCategory }[] = [
-  { label: 'All', value: 'all' },
-  { label: 'Gym Interior', value: 'interior' },
-  { label: 'Equipment', value: 'equipment' },
-  { label: 'Strength Training', value: 'strength' },
-  { label: 'Cardio', value: 'cardio' },
-  { label: 'Zumba', value: 'zumba' },
-  { label: 'Yoga', value: 'yoga' },
-  { label: 'Personal Training', value: 'trainers' },
-];
+import { ImageWithFallback } from '../common/ImageWithFallback';
 
 export const Gallery: React.FC = () => {
-  const [activeCategory, setActiveCategory] = useState<GalleryCategory>('all');
+  const [activeCategory, setActiveCategory] = useState<string>('All');
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [items, setItems] = useState<GalleryItem[]>(GALLERY_ITEMS);
 
@@ -26,8 +20,14 @@ export const Gallery: React.FC = () => {
     try {
       const published = await getPublishedGalleryItems();
       if (published.length > 0) {
+        // Deduplicate against GALLERY_ITEMS by id and media url
+        const publishedUrls = new Set(published.map((p) => p.image));
+        const publishedIds = new Set(published.map((p) => p.id));
+        const remainingBaseline = GALLERY_ITEMS.filter(
+          (b) => !publishedUrls.has(b.image) && !publishedIds.has(b.id)
+        );
         // Prepend published owner uploads so they appear first!
-        setItems([...published, ...GALLERY_ITEMS]);
+        setItems([...published, ...remainingBaseline]);
       } else {
         setItems(GALLERY_ITEMS);
       }
@@ -41,8 +41,25 @@ export const Gallery: React.FC = () => {
     loadGalleryMedia();
   }, [loadGalleryMedia]);
 
-  const filteredItems =
-    activeCategory === 'all' ? items : items.filter((item) => item.category === activeCategory);
+  // Determine categories that actually have media present
+  const availableCategories = useMemo(() => {
+    const presentCats = new Set<string>();
+    items.forEach((item) => {
+      presentCats.add(normalizeGalleryCategory(item.category));
+    });
+    // Filter predefined categories to only those with visible media
+    const withMedia = GALLERY_PREDEFINED_CATEGORIES.filter((cat) => presentCats.has(cat));
+    return ['All', ...withMedia];
+  }, [items]);
+
+  const filteredItems = useMemo(() => {
+    if (activeCategory === 'All' || activeCategory === 'all') {
+      return items;
+    }
+    return items.filter(
+      (item) => normalizeGalleryCategory(item.category) === activeCategory
+    );
+  }, [items, activeCategory]);
 
   const handleNext = useCallback(() => {
     if (lightboxIndex === null) return;
@@ -101,14 +118,14 @@ export const Gallery: React.FC = () => {
 
         {/* Category Filter Pills */}
         <div className="flex items-center gap-2 overflow-x-auto pb-4 mb-10 scrollbar-none">
-          {CATEGORIES.map((cat) => {
-            const isActive = activeCategory === cat.value;
+          {availableCategories.map((cat) => {
+            const isActive = activeCategory === cat;
             return (
               <button
-                key={cat.value}
+                key={cat}
                 type="button"
                 onClick={() => {
-                  setActiveCategory(cat.value);
+                  setActiveCategory(cat);
                   setLightboxIndex(null);
                 }}
                 className={`px-4 py-2 rounded text-xs font-oswald font-bold uppercase tracking-wider whitespace-nowrap transition-colors cursor-pointer ${
@@ -117,7 +134,7 @@ export const Gallery: React.FC = () => {
                     : 'bg-[#171717] border border-[#303030] text-[#A1A1A1] hover:text-white'
                 }`}
               >
-                {cat.label}
+                {cat}
               </button>
             );
           })}
@@ -150,9 +167,10 @@ export const Gallery: React.FC = () => {
                       preload="metadata"
                     />
                   ) : (
-                    <img
+                    <ImageWithFallback
                       src={item.image}
                       alt={item.title}
+                      category={item.categoryLabel}
                       className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500 filter brightness-90 group-hover:brightness-100"
                       loading="lazy"
                     />
@@ -263,12 +281,14 @@ export const Gallery: React.FC = () => {
                     src={currentItem.videoUrl || currentItem.image}
                     controls
                     autoPlay
+                    playsInline
                     className="max-h-[68vh] w-auto max-w-full"
                   />
                 ) : (
-                  <img
+                  <ImageWithFallback
                     src={currentItem.image}
                     alt={currentItem.title}
+                    category={currentItem.categoryLabel}
                     className="max-h-[68vh] w-auto max-w-full object-contain"
                   />
                 )}

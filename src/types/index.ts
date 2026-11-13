@@ -29,7 +29,55 @@ export interface MembershipPlan {
   displayOrder?: number;
 }
 
-export type GalleryCategory = 'all' | 'interior' | 'equipment' | 'strength' | 'cardio' | 'zumba' | 'yoga' | 'trainers';
+export const GALLERY_PREDEFINED_CATEGORIES = [
+  'Gym Interior',
+  'Equipment',
+  'Strength Training',
+  'Cardio',
+  'Zumba',
+  'Yoga',
+  'Personal Training',
+  'Events & Activities',
+  'Transformations',
+  'Other',
+] as const;
+
+export type GalleryPredefinedCategory = (typeof GALLERY_PREDEFINED_CATEGORIES)[number];
+
+export type GalleryCategory =
+  | 'all'
+  | 'All'
+  | 'interior'
+  | 'equipment'
+  | 'strength'
+  | 'cardio'
+  | 'zumba'
+  | 'yoga'
+  | 'trainers'
+  | GalleryPredefinedCategory;
+
+/**
+ * Normalizes legacy category slugs or user inputs into one of the 10 official categories.
+ */
+export function normalizeGalleryCategory(category?: string | null): GalleryPredefinedCategory {
+  if (!category) return 'Other';
+  const c = category.trim().toLowerCase();
+  if (c === 'interior' || c === 'gym interior') return 'Gym Interior';
+  if (c === 'equipment') return 'Equipment';
+  if (c === 'strength' || c === 'strength training') return 'Strength Training';
+  if (c === 'cardio') return 'Cardio';
+  if (c === 'zumba') return 'Zumba';
+  if (c === 'yoga') return 'Yoga';
+  if (c === 'trainers' || c === 'personal training') return 'Personal Training';
+  if (c.includes('event') || c.includes('activit')) return 'Events & Activities';
+  if (c.includes('transform')) return 'Transformations';
+  if (c === 'other') return 'Other';
+
+  const exact = GALLERY_PREDEFINED_CATEGORIES.find((item) => item.toLowerCase() === c);
+  if (exact) return exact;
+
+  return 'Other';
+}
 
 export interface GalleryItem {
   id: string;

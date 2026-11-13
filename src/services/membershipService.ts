@@ -230,50 +230,27 @@ export async function getPublicMembershipPlans(): Promise<MembershipPlan[]> {
   const supabase = getSupabase();
 
   if (supabase && isSupabaseConfigured()) {
-    try {
-      const { data, error } = await supabase
-        .from('membership_plans')
-        .select('*')
-        .eq('is_active', true)
-        .order('display_order', { ascending: true })
-        .order('price', { ascending: true });
+    const { data, error } = await supabase
+      .from('membership_plans')
+      .select('*')
+      .eq('is_active', true)
+      .order('display_order', { ascending: true })
+      .order('price', { ascending: true });
 
-      if (error) {
-        console.warn('Supabase fetch public membership plans error (using fallback):', error.message);
-        return MEMBERSHIP_PLANS.map((p) => ({ ...p, isActive: true }));
+    if (error) {
+      console.error('Supabase fetch public membership plans error:', error);
+      if (error.message.includes('Could not find the table') || (error as any).code === '42P01') {
+        throw new Error(
+          "Membership plans are currently being configured in the database. Please check back shortly or enquire directly via WhatsApp."
+        );
       }
-
-      if (data && data.length > 0) {
-        return data.map((row, idx) => mapRowToUiPlan(row, idx));
-      }
-
-      return MEMBERSHIP_PLANS.map((p) => ({ ...p, isActive: true }));
-    } catch (err) {
-      console.error('Error fetching public membership plans:', err);
-      return MEMBERSHIP_PLANS.map((p) => ({ ...p, isActive: true }));
+      throw new Error(`Unable to load live membership plans: ${error.message}`);
     }
+
+    return (data || []).map((row, idx) => mapRowToUiPlan(row, idx));
   }
 
-  // Fallback to active plans from local storage or gymData
-  const activeFallback = getLocalFallbackPlans().filter((p) => p.isActive);
-  if (activeFallback.length > 0) {
-    return activeFallback.map((row, idx) =>
-      mapRowToUiPlan(
-        {
-          id: row.id,
-          name: row.name,
-          duration: row.duration,
-          price: row.price,
-          description: row.description,
-          category: row.category,
-          is_active: row.isActive,
-          display_order: row.displayOrder,
-        },
-        idx
-      )
-    );
-  }
-
+  // If Supabase is completely unconfigured (e.g. local dev without .env), return baseline
   return MEMBERSHIP_PLANS.map((p) => ({ ...p, isActive: true }));
 }
 
@@ -295,7 +272,12 @@ export async function getOwnerMembershipPlans(): Promise<DbMembershipPlan[]> {
 
     if (error) {
       console.error('Supabase fetch owner membership plans error:', error);
-      throw new Error(`Failed to load plans: ${error.message}`);
+      if (error.message.includes('Could not find the table') || (error as any).code === '42P01') {
+        throw new Error(
+          "Table 'membership_plans' does not exist in Supabase yet. Please execute the SQL migration '20261112030000_create_membership_plans.sql' in the Supabase SQL Editor."
+        );
+      }
+      throw new Error(`Database error: ${error.message}`);
     }
 
     return (data || []).map((row) => ({
@@ -312,7 +294,7 @@ export async function getOwnerMembershipPlans(): Promise<DbMembershipPlan[]> {
     }));
   }
 
-  return getLocalFallbackPlans();
+  throw new Error('Supabase client is not configured.');
 }
 
 /**

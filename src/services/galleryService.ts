@@ -1,12 +1,38 @@
 import { getSupabase, isSupabaseConfigured } from './supabase';
 import { getActiveOwnerSession } from './authService';
 import type { OwnerGalleryMedia } from '../types/gallery';
-import type { GalleryCategory, GalleryItem } from '../types';
+import {
+  type GalleryCategory,
+  type GalleryItem,
+  normalizeGalleryCategory,
+} from '../types';
+import { GALLERY_ITEMS } from '../data/gymData';
 
 const STORAGE_BUCKET = 'gym-gallery';
 
 const MAX_IMAGE_SIZE_BYTES = 15 * 1024 * 1024; // 15MB
 const MAX_VIDEO_SIZE_BYTES = 50 * 1024 * 1024; // 50MB
+
+/**
+ * Baseline gym media matching the official website photos
+ */
+export function getBaselineOwnerMedia(): OwnerGalleryMedia[] {
+  return GALLERY_ITEMS.map((item) => {
+    const category = normalizeGalleryCategory(item.category);
+    return {
+      id: item.id,
+      title: item.title,
+      caption: item.caption,
+      category,
+      categoryLabel: category,
+      mediaUrl: item.image,
+      mediaType: item.mediaType || 'image',
+      isPublished: true,
+      isRealGymPhoto: item.isRealGymPhoto ?? true,
+      createdAt: item.createdAt || new Date('2026-11-01').toISOString(),
+    };
+  });
+}
 
 /**
  * Validates file type and size
@@ -78,6 +104,7 @@ export async function uploadGalleryMedia(
   }
 
   const mediaType = validation.mediaType;
+  const category = normalizeGalleryCategory(options?.category);
 
   // 1. Upload to Supabase Storage
   const timestamp = Date.now();
@@ -104,8 +131,8 @@ export async function uploadGalleryMedia(
   const newRecord = {
     title: options?.title?.trim() || file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '),
     caption: options?.caption?.trim() || '',
-    category: options?.category || 'interior',
-    category_label: 'Gym Gallery',
+    category,
+    category_label: category,
     media_url: mediaUrl,
     media_type: mediaType,
     file_path: filePath,
@@ -135,8 +162,8 @@ export async function uploadGalleryMedia(
     id: dbData.id,
     title: dbData.title,
     caption: dbData.caption,
-    category: dbData.category as GalleryCategory,
-    categoryLabel: dbData.category_label,
+    category: normalizeGalleryCategory(dbData.category),
+    categoryLabel: dbData.category_label || dbData.category,
     mediaUrl: dbData.media_url,
     mediaType: dbData.media_type,
     filePath: dbData.file_path,
@@ -151,16 +178,19 @@ export async function uploadGalleryMedia(
 /**
  * Fetches all gallery media (both published and drafts) for Owner Dashboard.
  * Requires authenticated owner session.
+ * Combines database records with baseline gym photos so the owner can manage all media.
  */
 export async function getOwnerGalleryItems(): Promise<OwnerGalleryMedia[]> {
   await requireOwnerSession();
 
+  const baseline = getBaselineOwnerMedia();
+
   if (!isSupabaseConfigured()) {
-    return [];
+    return baseline;
   }
 
   const supabase = getSupabase();
-  if (!supabase) return [];
+  if (!supabase) return baseline;
 
   const { data, error } = await supabase
     .from('gallery_items')
@@ -172,21 +202,115 @@ export async function getOwnerGalleryItems(): Promise<OwnerGalleryMedia[]> {
     throw new Error(`Failed to fetch gallery items: ${error.message}`);
   }
 
-  return (data || []).map((row) => ({
-    id: row.id,
-    title: row.title,
-    caption: row.caption,
-    category: row.category as GalleryCategory,
-    categoryLabel: row.category_label || 'Gym Gallery',
-    mediaUrl: row.media_url,
-    mediaType: row.media_type as 'image' | 'video',
-    filePath: row.file_path,
-    fileSize: row.file_size,
-    isPublished: row.is_published,
-    isRealGymPhoto: row.is_real_gym_photo,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  }));
+  const dbItems: OwnerGalleryMedia[] = (data || []).map((row) => {
+    const category = normalizeGalleryCategory(row.category);
+    return {
+      id: row.id,
+      title: row.title || 'Gym Photo',
+      caption: row.caption || '',
+      category,
+      categoryLabel: row.category_label || category,
+      mediaUrl: row.media_url,
+      mediaType: (row.media_type as 'image' | 'video') || 'image',
+      filePath: row.file_path,
+      fileSize: row.file_size,
+      isPublished: row.is_published,
+      isRealGymPhoto: row.is_real_gym_photo ?? true,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  });
+
+  if (dbItems.length === 0) {
+    return baseline;
+  }
+
+  // Deduplicate against baseline by mediaUrl
+  const knownUrls = new Set(dbItems.map((item) => item.mediaUrl));
+  const missingBaseline = baseline.filter((b) => !knownUrls.has(b.mediaUrl));
+
+  return [...dbItems, ...missingBaseline];
+}
+
+/**
+ * Updates caption, category, or title of an existing gallery item.
+ * Requires authenticated owner session.
+ */
+export async function updateGalleryMedia(
+  itemId: string,
+  updates: { caption?: string; category?: string; title?: string }
+): Promise<void> {
+  await requireOwnerSession();
+
+  if (!isSupabaseConfigured()) {
+    throw new Error('Supabase is not configured.');
+  }
+
+  const supabase = getSupabase();
+  if (!supabase) throw new Error('Supabase client unavailable.');
+
+  const updatePayload: Record<string, any> = {
+    updated_at: new Date().toISOString(),
+  };
+
+  if (updates.caption !== undefined) {
+    updatePayload.caption = updates.caption.trim();
+  }
+  if (updates.title !== undefined) {
+    updatePayload.title = updates.title.trim();
+  }
+  if (updates.category !== undefined) {
+    const normalized = normalizeGalleryCategory(updates.category);
+    updatePayload.category = normalized;
+    updatePayload.category_label = normalized;
+  }
+
+  const { error } = await supabase
+    .from('gallery_items')
+    .update(updatePayload)
+    .eq('id', itemId);
+
+  if (error) {
+    throw new Error(`Update failed: ${error.message}`);
+  }
+}
+
+/**
+ * Toggles published status (Live vs Draft).
+ * Requires authenticated owner session.
+ */
+export async function toggleGalleryPublishStatus(
+  itemId: string,
+  isPublished: boolean
+): Promise<void> {
+  await requireOwnerSession();
+
+  if (!isSupabaseConfigured()) {
+    throw new Error('Supabase is not configured.');
+  }
+
+  const supabase = getSupabase();
+  if (!supabase) throw new Error('Supabase client unavailable.');
+
+  const { error } = await supabase
+    .from('gallery_items')
+    .update({
+      is_published: isPublished,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', itemId);
+
+  if (error) {
+    throw new Error(`Status update failed: ${error.message}`);
+  }
+}
+
+/**
+ * Unpublishes a gallery item (moves to Draft).
+ * Requires authenticated owner session.
+ */
+export async function unpublishGalleryItem(itemId: string): Promise<void> {
+  return toggleGalleryPublishStatus(itemId, false);
 }
 
 /**
@@ -299,19 +423,22 @@ export async function getPublishedGalleryItems(): Promise<GalleryItem[]> {
       return [];
     }
 
-    return (data || []).map((row) => ({
-      id: row.id,
-      title: row.title || 'ICON FITNESS Experience',
-      category: (row.category as GalleryCategory) || 'interior',
-      categoryLabel: row.category_label || 'Gym Gallery',
-      image: row.media_url,
-      caption: row.caption || '',
-      isRealGymPhoto: row.is_real_gym_photo ?? true,
-      mediaType: (row.media_type as 'image' | 'video') || 'image',
-      videoUrl: row.media_type === 'video' ? row.media_url : undefined,
-      isPublished: true,
-      createdAt: row.created_at,
-    }));
+    return (data || []).map((row) => {
+      const category = normalizeGalleryCategory(row.category);
+      return {
+        id: row.id,
+        title: row.title || 'ICON FITNESS Experience',
+        category,
+        categoryLabel: row.category_label || category,
+        image: row.media_url,
+        caption: row.caption || '',
+        isRealGymPhoto: row.is_real_gym_photo ?? true,
+        mediaType: (row.media_type as 'image' | 'video') || 'image',
+        videoUrl: row.media_type === 'video' ? row.media_url : undefined,
+        isPublished: true,
+        createdAt: row.created_at,
+      };
+    });
   } catch (err) {
     console.error('Error fetching published gallery items:', err);
     return [];

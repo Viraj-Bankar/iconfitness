@@ -291,7 +291,7 @@ export const GALLERY_ITEMS: GalleryItem[] = [
   {
     id: 'gal-real-wide',
     title: '4,000 Sq. Ft. Workout Floor',
-    category: 'interior',
+    category: 'Gym Interior',
     categoryLabel: 'Gym Interior',
     image: '/assets/gallery/real-gym-wide-interior.jpg',
     caption: 'Actual Photo: Wide-angle view of ICON FITNESS main floor with green turf strip, strength equipment, and mirror walls in Moshi.',
@@ -300,7 +300,7 @@ export const GALLERY_ITEMS: GalleryItem[] = [
   {
     id: 'gal-real-floor',
     title: 'Turf Lane & Battle Ropes',
-    category: 'strength',
+    category: 'Strength Training',
     categoryLabel: 'Strength Training',
     image: '/assets/gallery/real-gym-floor-battleropes.jpg',
     caption: 'Actual Photo: Functional training turf strip with battle ropes, agility ladder, heavy tire, and plate-loaded machines.',
@@ -309,7 +309,7 @@ export const GALLERY_ITEMS: GalleryItem[] = [
   {
     id: 'gal-real-cardio',
     title: 'Dedicated Cardio Section',
-    category: 'cardio',
+    category: 'Cardio',
     categoryLabel: 'Cardio',
     image: '/assets/gallery/real-gym-cardio.jpg',
     caption: 'Actual Photo: Commercial treadmills, ellipticals, and stationary spin bikes for endurance conditioning.',
@@ -318,7 +318,7 @@ export const GALLERY_ITEMS: GalleryItem[] = [
   {
     id: 'gal-real-poster',
     title: 'Official Gym Fees & Brand Poster',
-    category: 'interior',
+    category: 'Gym Interior',
     categoryLabel: 'Gym Interior',
     image: '/assets/gallery/official-poster.jpg',
     caption: 'Official promotional poster displaying ICON FITNESS gym fees, slogans, and contact details.',
@@ -327,7 +327,7 @@ export const GALLERY_ITEMS: GalleryItem[] = [
   {
     id: 'gal-strength-gear',
     title: 'Heavy Free Weights Station',
-    category: 'equipment',
+    category: 'Equipment',
     categoryLabel: 'Equipment',
     image: 'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?auto=format&fit=crop&w=1200&q=80',
     caption: 'Commercial dumbbells, barbells, and ergonomic benches for progressive resistance.',
@@ -335,7 +335,7 @@ export const GALLERY_ITEMS: GalleryItem[] = [
   {
     id: 'gal-group-zumba',
     title: 'High-Energy Zumba Class',
-    category: 'zumba',
+    category: 'Zumba',
     categoryLabel: 'Zumba',
     image: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=1200&q=80',
     caption: 'Rhythmic group dance sessions combining calorie burn with uplifting music.',
@@ -343,7 +343,7 @@ export const GALLERY_ITEMS: GalleryItem[] = [
   {
     id: 'gal-mindful-yoga',
     title: 'Mindful Yoga & Mobility',
-    category: 'yoga',
+    category: 'Yoga',
     categoryLabel: 'Yoga',
     image: 'https://images.unsplash.com/photo-1545205597-3d9d02c29597?auto=format&fit=crop&w=1200&q=80',
     caption: 'Dedicated space for flexibility, mobility routines, and yoga flows.',
@@ -351,7 +351,7 @@ export const GALLERY_ITEMS: GalleryItem[] = [
   {
     id: 'gal-trainer-pt',
     title: 'Personal Training Guidance',
-    category: 'trainers',
+    category: 'Personal Training',
     categoryLabel: 'Personal Training',
     image: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?auto=format&fit=crop&w=1200&q=80',
     caption: 'Floor coaches offering form checking, posture guidance, and training support.',

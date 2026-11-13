@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Check, ArrowRight } from 'lucide-react';
-import { MEMBERSHIP_PLANS, ADDITIONAL_OFFERS } from '../../data/gymData';
+import { Check, ArrowRight, RotateCcw, AlertCircle, MessageCircle } from 'lucide-react';
+import { ADDITIONAL_OFFERS } from '../../data/gymData';
 import { getPublicMembershipPlans } from '../../services/membershipService';
 import type { MembershipPlan } from '../../types';
+import { openWhatsApp, formatWhatsAppMessage } from '../../utils/whatsapp';
 
 interface MembershipProps {
   onSelectPlan: (plan: MembershipPlan) => void;
@@ -11,24 +12,38 @@ interface MembershipProps {
 }
 
 export const Membership: React.FC<MembershipProps> = ({ onSelectPlan, onEnquireOffer }) => {
-  const [plans, setPlans] = useState<MembershipPlan[]>(MEMBERSHIP_PLANS);
+  const [plans, setPlans] = useState<MembershipPlan[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const fetchPlans = useCallback(async () => {
+    setIsLoading(true);
+    setErrorMessage(null);
+    try {
+      const data = await getPublicMembershipPlans();
+      setPlans(data);
+    } catch (err: unknown) {
+      console.warn('Failed to load membership plans from Supabase:', err);
+      const msg = err instanceof Error ? err.message : 'Unable to load current membership plans.';
+      setErrorMessage(msg);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    let isMounted = true;
-    getPublicMembershipPlans()
-      .then((data) => {
-        if (isMounted && data && data.length > 0) {
-          setPlans(data);
-        }
-      })
-      .catch((err) => {
-        console.warn('Failed to load membership plans from Supabase:', err);
-      });
+    fetchPlans();
+  }, [fetchPlans]);
 
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  const handleWhatsAppDirect = () => {
+    const text = formatWhatsAppMessage({
+      fullName: 'Website Visitor',
+      phone: '',
+      interestedIn: 'Membership',
+      message: 'Hello ICON FITNESS, I would like to enquire about your current membership plans and pricing.',
+    });
+    openWhatsApp(text);
+  };
   return (
     <section id="membership" className="relative py-24 lg:py-32 bg-[#080808] text-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
@@ -49,7 +64,59 @@ export const Membership: React.FC<MembershipProps> = ({ onSelectPlan, onEnquireO
 
         {/* Membership Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5 mb-16">
-          {plans.length === 0 ? (
+          {isLoading ? (
+            Array.from({ length: 5 }).map((_, i) => (
+              <div
+                key={i}
+                className="rounded-md bg-[#171717] border border-[#303030] p-6 h-[420px] animate-pulse flex flex-col justify-between"
+              >
+                <div className="space-y-4">
+                  <div className="w-16 h-3 bg-neutral-800 rounded" />
+                  <div className="w-28 h-6 bg-neutral-800 rounded" />
+                  <div className="w-20 h-4 bg-neutral-800 rounded" />
+                  <div className="w-32 h-10 bg-neutral-800 rounded pt-4" />
+                  <div className="space-y-2 pt-4">
+                    <div className="w-full h-3 bg-neutral-800 rounded" />
+                    <div className="w-4/5 h-3 bg-neutral-800 rounded" />
+                    <div className="w-3/4 h-3 bg-neutral-800 rounded" />
+                  </div>
+                </div>
+                <div className="w-full h-10 bg-neutral-800 rounded" />
+              </div>
+            ))
+          ) : errorMessage ? (
+            <div className="col-span-full py-12 px-6 rounded-md bg-[#171717] border border-red-500/30 text-center space-y-4">
+              <div className="w-12 h-12 rounded-full bg-red-500/15 border border-red-500/30 flex items-center justify-center text-red-400 mx-auto">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+              <div className="max-w-md mx-auto space-y-1">
+                <h3 className="font-display text-xl font-black uppercase text-white tracking-wide">
+                  Unable to Load Live Pricing
+                </h3>
+                <p className="text-xs text-neutral-400">
+                  {errorMessage}
+                </p>
+              </div>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={fetchPlans}
+                  className="px-5 py-2.5 rounded bg-[#ED101B] hover:bg-[#B9000B] text-white text-xs font-oswald font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer shadow"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Retry Loading</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleWhatsAppDirect}
+                  className="px-5 py-2.5 rounded bg-[#25D366] hover:bg-[#20ba59] text-black text-xs font-oswald font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer shadow"
+                >
+                  <MessageCircle className="w-3.5 h-3.5 fill-black" />
+                  <span>Enquire via WhatsApp</span>
+                </button>
+              </div>
+            </div>
+          ) : plans.length === 0 ? (
             <div className="col-span-full py-16 text-center rounded-md bg-[#171717] border border-[#303030] p-8">
               <p className="text-[#A1A1A1] text-base mb-2">No membership plans available at this moment.</p>
               <p className="text-xs text-neutral-400">Please contact us directly on WhatsApp for customized plans.</p>

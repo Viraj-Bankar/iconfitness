@@ -23,6 +23,8 @@ CREATE INDEX IF NOT EXISTS idx_membership_plans_active_order
     ON public.membership_plans (is_active, display_order ASC, price ASC);
 CREATE INDEX IF NOT EXISTS idx_membership_plans_category 
     ON public.membership_plans (category);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_membership_plans_name_duration 
+    ON public.membership_plans (lower(name), lower(duration));
 
 -- 3. Automatic updated_at trigger
 CREATE OR REPLACE FUNCTION public.handle_membership_plans_updated_at()
@@ -87,11 +89,11 @@ CREATE POLICY "Service role unrestricted membership plans access"
     USING (true)
     WITH CHECK (true);
 
--- 6. Initial Seed Data (5 Official Poster Plans) with deterministic UUIDs for safe idempotent execution
+-- 6. Initial Seed Data (5 Official Poster Plans)
+-- Seeded ONLY when genuinely missing, checked by normalized plan name and duration
 INSERT INTO public.membership_plans (id, name, duration, price, description, category, is_active, display_order)
-VALUES
-(
-    '00000000-0000-0000-0001-000000000001',
+SELECT
+    '00000000-0000-0000-0001-000000000001'::uuid,
     'MONTHLY',
     '1 Month',
     1200.00,
@@ -99,9 +101,14 @@ VALUES
     'Individual',
     true,
     1
-),
-(
-    '00000000-0000-0000-0001-000000000002',
+WHERE NOT EXISTS (
+    SELECT 1 FROM public.membership_plans 
+    WHERE lower(name) = 'monthly' AND lower(duration) = '1 month'
+);
+
+INSERT INTO public.membership_plans (id, name, duration, price, description, category, is_active, display_order)
+SELECT
+    '00000000-0000-0000-0001-000000000002'::uuid,
     'QUARTERLY',
     '3 Months',
     3000.00,
@@ -109,9 +116,14 @@ VALUES
     'Individual',
     true,
     2
-),
-(
-    '00000000-0000-0000-0001-000000000003',
+WHERE NOT EXISTS (
+    SELECT 1 FROM public.membership_plans 
+    WHERE lower(name) = 'quarterly' AND lower(duration) = '3 months'
+);
+
+INSERT INTO public.membership_plans (id, name, duration, price, description, category, is_active, display_order)
+SELECT
+    '00000000-0000-0000-0001-000000000003'::uuid,
     'HALF YEARLY',
     '6 Months',
     5500.00,
@@ -119,9 +131,14 @@ VALUES
     'Individual',
     true,
     3
-),
-(
-    '00000000-0000-0000-0001-000000000004',
+WHERE NOT EXISTS (
+    SELECT 1 FROM public.membership_plans 
+    WHERE lower(name) = 'half yearly' AND lower(duration) = '6 months'
+);
+
+INSERT INTO public.membership_plans (id, name, duration, price, description, category, is_active, display_order)
+SELECT
+    '00000000-0000-0000-0001-000000000004'::uuid,
     'YEARLY',
     '1 Year',
     8000.00,
@@ -129,9 +146,14 @@ VALUES
     'Individual',
     true,
     4
-),
-(
-    '00000000-0000-0000-0001-000000000005',
+WHERE NOT EXISTS (
+    SELECT 1 FROM public.membership_plans 
+    WHERE lower(name) = 'yearly' AND lower(duration) = '1 year'
+);
+
+INSERT INTO public.membership_plans (id, name, duration, price, description, category, is_active, display_order)
+SELECT
+    '00000000-0000-0000-0001-000000000005'::uuid,
     'COUPLE MEMBERSHIP',
     '3 Months (2 Persons)',
     4500.00,
@@ -139,6 +161,8 @@ VALUES
     'Couple',
     true,
     5
-)
-ON CONFLICT (id) DO NOTHING;
+WHERE NOT EXISTS (
+    SELECT 1 FROM public.membership_plans 
+    WHERE lower(name) = 'couple membership' OR (category = 'Couple' AND lower(duration) LIKE '%3 month%')
+);
 

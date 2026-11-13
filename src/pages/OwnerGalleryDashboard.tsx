@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   UploadCloud,
@@ -17,6 +17,10 @@ import {
   Plus,
   CreditCard,
   Image,
+  Power,
+  RotateCcw,
+  Tag,
+  Filter,
 } from 'lucide-react';
 import { BrandLogo } from '../components/common/BrandLogo';
 import { getActiveOwnerSession, logoutOwner } from '../services/authService';
@@ -25,10 +29,25 @@ import {
   uploadGalleryMedia,
   publishGalleryItems,
   deleteGalleryMedia,
-  updateGalleryCaption,
+  updateGalleryMedia,
+  toggleGalleryPublishStatus,
   validateMediaFile,
 } from '../services/galleryService';
 import type { OwnerGalleryMedia } from '../types/gallery';
+import {
+  GALLERY_PREDEFINED_CATEGORIES,
+  type GalleryPredefinedCategory,
+  normalizeGalleryCategory,
+} from '../types';
+import { ImageWithFallback } from '../components/common/ImageWithFallback';
+
+interface SelectedUploadFile {
+  file: File;
+  preview: string;
+  isVideo: boolean;
+  category: GalleryPredefinedCategory;
+  caption: string;
+}
 
 export const OwnerGalleryDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -39,8 +58,13 @@ export const OwnerGalleryDashboard: React.FC = () => {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Filters
+  const [statusFilter, setStatusFilter] = useState<'all' | 'live' | 'draft'>('all');
+  const [categoryFilter, setCategoryFilter] = useState<'all' | GalleryPredefinedCategory>('all');
+
   // Selected files queue for preview before upload
-  const [selectedFiles, setSelectedFiles] = useState<{ file: File; preview: string; isVideo: boolean }[]>([]);
+  const [selectedFiles, setSelectedFiles] = useState<SelectedUploadFile[]>([]);
+  const [batchCategory, setBatchCategory] = useState<GalleryPredefinedCategory>('Gym Interior');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
@@ -48,17 +72,29 @@ export const OwnerGalleryDashboard: React.FC = () => {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Caption editing modal/popover
-  const [editingItem, setEditingItem] = useState<{ id: string; caption: string } | null>(null);
+  // Edit modal state
+  const [editingItem, setEditingItem] = useState<{
+    id: string;
+    title: string;
+    category: GalleryPredefinedCategory;
+    caption: string;
+  } | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  // Delete confirmation modal state
+  const [deletingItem, setDeletingItem] = useState<OwnerGalleryMedia | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const loadGallery = useCallback(async () => {
     setIsLoading(true);
+    setErrorMessage(null);
     try {
       const data = await getOwnerGalleryItems();
       setItems(data);
     } catch (err: unknown) {
       console.error('Error loading gallery items:', err);
-      setErrorMessage('Could not load gallery items. Please try again.');
+      const msg = err instanceof Error ? err.message : 'Could not load gallery items. Please try again.';
+      setErrorMessage(msg);
     } finally {
       setIsLoading(false);
     }
@@ -103,7 +139,7 @@ export const OwnerGalleryDashboard: React.FC = () => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
-    const validNewFiles: { file: File; preview: string; isVideo: boolean }[] = [];
+    const validNewFiles: SelectedUploadFile[] = [];
 
     for (const f of files) {
       const check = validateMediaFile(f);
@@ -115,6 +151,8 @@ export const OwnerGalleryDashboard: React.FC = () => {
         file: f,
         preview: URL.createObjectURL(f),
         isVideo: check.mediaType === 'video',
+        category: batchCategory,
+        caption: '',
       });
     }
 
@@ -128,6 +166,26 @@ export const OwnerGalleryDashboard: React.FC = () => {
       copy.splice(idx, 1);
       return copy;
     });
+  };
+
+  // Apply batch category to all selected files
+  const handleApplyBatchCategory = (newCat: GalleryPredefinedCategory) => {
+    setBatchCategory(newCat);
+    setSelectedFiles((prev) => prev.map((f) => ({ ...f, category: newCat })));
+  };
+
+  // Update category for individual file
+  const handleUpdateFileCategory = (index: number, newCat: GalleryPredefinedCategory) => {
+    setSelectedFiles((prev) =>
+      prev.map((f, i) => (i === index ? { ...f, category: newCat } : f))
+    );
+  };
+
+  // Update caption for individual file
+  const handleUpdateFileCaption = (index: number, caption: string) => {
+    setSelectedFiles((prev) =>
+      prev.map((f, i) => (i === index ? { ...f, caption } : f))
+    );
   };
 
   // 3. Upload Selected Files
@@ -144,7 +202,10 @@ export const OwnerGalleryDashboard: React.FC = () => {
     try {
       for (let i = 0; i < selectedFiles.length; i++) {
         const item = selectedFiles[i];
-        await uploadGalleryMedia(item.file);
+        await uploadGalleryMedia(item.file, {
+          category: item.category,
+          caption: item.caption,
+        });
         uploadedCount++;
         setUploadProgress(Math.round(((i + 1) / selectedFiles.length) * 100));
       }
@@ -154,7 +215,7 @@ export const OwnerGalleryDashboard: React.FC = () => {
       setSelectedFiles([]);
 
       setSuccessMessage(
-        `${uploadedCount} ${uploadedCount === 1 ? 'item' : 'items'} uploaded successfully as draft. Click "PUBLISH TO WEBSITE" to make them live!`
+        `${uploadedCount} ${uploadedCount === 1 ? 'item' : 'items'} uploaded successfully as draft. Click "PUBLISH TO WEBSITE" to make live!`
       );
       await loadGallery();
     } catch (err: unknown) {
@@ -194,37 +255,72 @@ export const OwnerGalleryDashboard: React.FC = () => {
     }
   };
 
-  // 5. Delete Item
-  const handleDelete = async (item: OwnerGalleryMedia) => {
-    const isConfirmed = window.confirm(
-      `Delete this ${item.mediaType}? It will be removed from your gallery and website.`
-    );
-    if (!isConfirmed) return;
-
+  // 5. Toggle Live/Draft
+  const handleTogglePublish = async (item: OwnerGalleryMedia) => {
+    const nextStatus = !item.isPublished;
     try {
-      await deleteGalleryMedia(item.id, item.filePath);
-      setItems((prev) => prev.filter((it) => it.id !== item.id));
-      setSelectedIds((prev) => prev.filter((id) => id !== item.id));
-      setSuccessMessage('Item deleted.');
+      await toggleGalleryPublishStatus(item.id, nextStatus);
+      setItems((prev) =>
+        prev.map((it) => (it.id === item.id ? { ...it, isPublished: nextStatus } : it))
+      );
+      setSuccessMessage(
+        `"${item.title || 'Media'}" is now ${nextStatus ? 'LIVE on the website' : 'DRAFT (hidden from public)'}.`
+      );
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Delete failed.';
+      const msg = err instanceof Error ? err.message : 'Status update failed.';
       setErrorMessage(msg);
     }
   };
 
-  // 6. Save Caption
-  const handleSaveCaption = async () => {
-    if (!editingItem) return;
+  // 6. Delete Item with Modal Confirmation
+  const handleConfirmDelete = async () => {
+    if (!deletingItem) return;
+    setIsDeleting(true);
+
     try {
-      await updateGalleryCaption(editingItem.id, editingItem.caption);
+      await deleteGalleryMedia(deletingItem.id, deletingItem.filePath);
+      setItems((prev) => prev.filter((it) => it.id !== deletingItem.id));
+      setSelectedIds((prev) => prev.filter((id) => id !== deletingItem.id));
+      setSuccessMessage(`"${deletingItem.title || 'Item'}" has been permanently deleted.`);
+      setDeletingItem(null);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Delete failed.';
+      setErrorMessage(msg);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // 7. Save Edit (Category & Caption)
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingItem) return;
+    setIsUpdating(true);
+
+    try {
+      await updateGalleryMedia(editingItem.id, {
+        category: editingItem.category,
+        caption: editingItem.caption,
+      });
       setItems((prev) =>
-        prev.map((it) => (it.id === editingItem.id ? { ...it, caption: editingItem.caption } : it))
+        prev.map((it) =>
+          it.id === editingItem.id
+            ? {
+                ...it,
+                category: editingItem.category,
+                categoryLabel: editingItem.category,
+                caption: editingItem.caption,
+              }
+            : it
+        )
       );
       setEditingItem(null);
-      setSuccessMessage('Caption updated.');
+      setSuccessMessage('Media details updated successfully.');
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to update caption.';
+      const msg = err instanceof Error ? err.message : 'Failed to update media.';
       setErrorMessage(msg);
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -232,6 +328,18 @@ export const OwnerGalleryDashboard: React.FC = () => {
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]));
   };
+
+  // Filtered items
+  const filteredItems = useMemo(() => {
+    return items.filter((item) => {
+      if (statusFilter === 'live' && !item.isPublished) return false;
+      if (statusFilter === 'draft' && item.isPublished) return false;
+      if (categoryFilter !== 'all' && normalizeGalleryCategory(item.category) !== categoryFilter) {
+        return false;
+      }
+      return true;
+    });
+  }, [items, statusFilter, categoryFilter]);
 
   const unpublishedCount = items.filter((it) => !it.isPublished).length;
   const publishedCount = items.filter((it) => it.isPublished).length;
@@ -261,7 +369,7 @@ export const OwnerGalleryDashboard: React.FC = () => {
         className="hidden"
       />
 
-      {/* Top Bar */}
+      {/* Top Bar with Navigation Tabs */}
       <header className="bg-[#171717] border-b border-[#303030] sticky top-0 z-30 shadow-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -326,7 +434,7 @@ export const OwnerGalleryDashboard: React.FC = () => {
             Welcome to ICON FITNESS
           </h1>
           <p className="text-sm sm:text-base text-[#A1A1A1] font-normal">
-            Manage your gym photos and videos.
+            Manage your gym photos and videos with category assignment and live publishing.
           </p>
         </div>
 
@@ -348,22 +456,35 @@ export const OwnerGalleryDashboard: React.FC = () => {
         )}
 
         {errorMessage && (
-          <div className="p-4 rounded-md bg-red-500/15 border border-red-500/40 text-red-300 text-xs sm:text-sm flex items-start justify-between gap-3 shadow-lg">
+          <div className="p-4 rounded-md bg-red-500/15 border border-red-500/40 text-red-300 text-xs sm:text-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg">
             <div className="flex items-start gap-2.5">
               <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-              <span className="font-medium">{errorMessage}</span>
+              <div>
+                <span className="font-bold block">Gallery Error:</span>
+                <span className="text-neutral-300">{errorMessage}</span>
+              </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setErrorMessage(null)}
-              className="text-red-400 hover:text-white text-base leading-none"
-            >
-              &times;
-            </button>
+            <div className="flex items-center gap-2 self-end sm:self-auto">
+              <button
+                type="button"
+                onClick={loadGallery}
+                className="px-3 py-1.5 rounded bg-red-600 hover:bg-red-500 text-white font-oswald text-xs uppercase tracking-wider flex items-center gap-1.5 cursor-pointer shadow"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>RETRY</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setErrorMessage(null)}
+                className="text-red-400 hover:text-white text-base leading-none px-1"
+              >
+                &times;
+              </button>
+            </div>
           </div>
         )}
 
-        {/* 4 Essential Large Buttons Section */}
+        {/* 2 Primary Action Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {/* 1. ADD PHOTOS OR VIDEOS */}
           <button
@@ -421,16 +542,19 @@ export const OwnerGalleryDashboard: React.FC = () => {
           </button>
         </div>
 
-        {/* Selected Files Preview Queue (When files are chosen) */}
+        {/* Selected Files Preview Queue & Category Selection */}
         {selectedFiles.length > 0 && (
-          <div className="p-5 sm:p-6 rounded-md bg-[#171717] border-2 border-[#ED101B] space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between">
+          <div className="p-5 sm:p-6 rounded-md bg-[#171717] border-2 border-[#ED101B] space-y-5 shadow-2xl">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#303030]">
               <div>
-                <h3 className="font-display text-xl font-black uppercase text-white tracking-wide">
-                  Selected for Upload ({selectedFiles.length})
+                <h3 className="font-display text-xl sm:text-2xl font-black uppercase text-white tracking-wide flex items-center gap-2">
+                  <span>Selected for Upload</span>
+                  <span className="px-2.5 py-0.5 rounded-full bg-[#ED101B] text-white text-xs font-oswald">
+                    {selectedFiles.length}
+                  </span>
                 </h3>
-                <p className="text-xs text-neutral-400">
-                  Review your photos or videos before uploading.
+                <p className="text-xs text-neutral-400 mt-0.5">
+                  Assign categories and optional captions before saving to your dashboard drafts.
                 </p>
               </div>
 
@@ -444,7 +568,10 @@ export const OwnerGalleryDashboard: React.FC = () => {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setSelectedFiles([])}
+                  onClick={() => {
+                    selectedFiles.forEach((f) => URL.revokeObjectURL(f.preview));
+                    setSelectedFiles([]);
+                  }}
                   className="px-3 py-1.5 rounded bg-neutral-900 hover:bg-neutral-800 text-neutral-400 text-xs font-oswald uppercase"
                 >
                   Clear All
@@ -452,42 +579,115 @@ export const OwnerGalleryDashboard: React.FC = () => {
               </div>
             </div>
 
-            {/* Thumbnail Preview Strip */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
+            {/* Batch Category Selector (Apply one category to all files) */}
+            <div className="p-3.5 rounded bg-[#080808] border border-[#303030] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Tag className="w-4 h-4 text-[#ED101B]" />
+                <span className="text-xs font-oswald uppercase font-bold text-neutral-300">
+                  Batch Category (Apply to all {selectedFiles.length} files):
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <select
+                  value={batchCategory}
+                  onChange={(e) => handleApplyBatchCategory(e.target.value as GalleryPredefinedCategory)}
+                  className="px-3 py-1.5 rounded bg-[#171717] border border-[#ED101B]/50 text-white text-xs font-oswald uppercase focus:outline-none focus:border-[#ED101B]"
+                >
+                  {GALLERY_PREDEFINED_CATEGORIES.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => handleApplyBatchCategory(batchCategory)}
+                  className="px-3 py-1.5 rounded bg-[#222222] hover:bg-neutral-700 text-white text-xs font-oswald uppercase font-bold"
+                >
+                  Apply All
+                </button>
+              </div>
+            </div>
+
+            {/* Individual Cards with Preview, Category Selector, and Caption */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               {selectedFiles.map((item, idx) => (
                 <div
                   key={idx}
-                  className="relative rounded-md overflow-hidden aspect-square bg-black border border-[#303030] group"
+                  className="relative rounded-md overflow-hidden bg-[#080808] border border-[#303030] p-3 space-y-2.5 flex flex-col justify-between"
                 >
-                  {item.isVideo ? (
-                    <video
-                      src={item.preview}
-                      className="w-full h-full object-cover"
-                      muted
-                      preload="metadata"
-                    />
-                  ) : (
-                    <img
-                      src={item.preview}
-                      alt={`Preview ${idx}`}
-                      className="w-full h-full object-cover"
-                    />
-                  )}
+                  {/* Media Thumbnail */}
+                  <div className="relative aspect-video w-full rounded overflow-hidden bg-black">
+                    {item.isVideo ? (
+                      <video
+                        src={item.preview}
+                        className="w-full h-full object-cover"
+                        muted
+                        preload="metadata"
+                      />
+                    ) : (
+                      <img
+                        src={item.preview}
+                        alt={`Upload preview ${idx + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                    )}
 
-                  {item.isVideo && (
-                    <div className="absolute top-1.5 left-1.5 bg-blue-600 text-white p-1 rounded-full shadow">
-                      <Play className="w-2.5 h-2.5 fill-white" />
-                    </div>
-                  )}
+                    {item.isVideo && (
+                      <div className="absolute top-2 left-2 bg-blue-600 text-white px-2 py-0.5 rounded text-[10px] font-oswald font-black uppercase flex items-center gap-1 shadow">
+                        <Play className="w-2.5 h-2.5 fill-white" />
+                        <span>Video</span>
+                      </div>
+                    )}
 
-                  <button
-                    type="button"
-                    onClick={() => removeSelectedFile(idx)}
-                    aria-label="Remove photo"
-                    className="absolute top-1.5 right-1.5 p-1 rounded-full bg-black/80 text-white hover:bg-[#ED101B] transition-colors"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
+                    <span className="absolute top-2 right-9 px-2 py-0.5 rounded bg-black/80 border border-[#303030] text-[#ED101B] text-[10px] font-oswald font-bold uppercase tracking-wider shadow">
+                      {item.category}
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={() => removeSelectedFile(idx)}
+                      aria-label="Remove photo"
+                      className="absolute top-2 right-2 p-1 rounded-full bg-black/80 text-white hover:bg-[#ED101B] transition-colors"
+                      title="Remove from upload"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  {/* Category Dropdown for this item */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-oswald uppercase text-neutral-400 font-bold block">
+                      Category *
+                    </label>
+                    <select
+                      value={item.category}
+                      onChange={(e) =>
+                        handleUpdateFileCategory(idx, e.target.value as GalleryPredefinedCategory)
+                      }
+                      className="w-full px-2.5 py-1.5 rounded bg-[#171717] border border-[#303030] text-white text-xs font-oswald uppercase focus:outline-none focus:border-[#ED101B]"
+                    >
+                      {GALLERY_PREDEFINED_CATEGORIES.map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Caption Input for this item */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-oswald uppercase text-neutral-400 font-bold block">
+                      Caption (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={item.caption}
+                      onChange={(e) => handleUpdateFileCaption(idx, e.target.value)}
+                      placeholder="e.g. Heavy deadlift zone in Moshi"
+                      className="w-full px-2.5 py-1.5 rounded bg-[#171717] border border-[#303030] text-white text-xs focus:outline-none focus:border-[#ED101B]"
+                    />
+                  </div>
                 </div>
               ))}
             </div>
@@ -530,8 +730,8 @@ export const OwnerGalleryDashboard: React.FC = () => {
         )}
 
         {/* MY GALLERY SECTION */}
-        <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-[#303030]">
+        <div className="space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#303030]">
             <div className="flex items-center gap-2.5">
               <Grid className="w-5 h-5 text-[#ED101B]" />
               <h2 className="font-display text-2xl font-black uppercase text-white tracking-wide">
@@ -550,39 +750,101 @@ export const OwnerGalleryDashboard: React.FC = () => {
             </div>
           </div>
 
-          {/* Bulk Selection Bar */}
-          {items.length > 0 && (
-            <div className="p-3 rounded bg-[#171717] border border-[#303030] flex flex-wrap items-center justify-between gap-3 text-xs">
-              <div className="flex items-center gap-2">
+          {/* Filter Bar: Status & Category */}
+          <div className="p-3.5 rounded-md bg-[#171717] border border-[#303030] space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              {/* Status Filter Pills */}
+              <div className="flex items-center gap-1.5 text-xs font-oswald">
+                <span className="text-neutral-400 uppercase mr-1 flex items-center gap-1">
+                  <Filter className="w-3.5 h-3.5 text-[#ED101B]" /> Status:
+                </span>
                 <button
                   type="button"
-                  onClick={() => {
-                    if (selectedIds.length === items.length) setSelectedIds([]);
-                    else setSelectedIds(items.map((it) => it.id));
-                  }}
-                  className="px-2.5 py-1 rounded bg-[#222222] text-neutral-300 hover:text-white font-oswald uppercase"
+                  onClick={() => setStatusFilter('all')}
+                  className={`px-3 py-1 rounded uppercase font-bold transition-colors ${
+                    statusFilter === 'all'
+                      ? 'bg-[#ED101B] text-white'
+                      : 'bg-[#222222] text-neutral-300 hover:text-white'
+                  }`}
                 >
-                  {selectedIds.length === items.length ? 'Deselect All' : 'Select All'}
+                  All ({items.length})
                 </button>
-                <span className="text-neutral-400">
-                  {selectedIds.length} of {items.length} selected
-                </span>
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('live')}
+                  className={`px-3 py-1 rounded uppercase font-bold transition-colors ${
+                    statusFilter === 'live'
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-[#222222] text-neutral-300 hover:text-white'
+                  }`}
+                >
+                  Live ({publishedCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('draft')}
+                  className={`px-3 py-1 rounded uppercase font-bold transition-colors ${
+                    statusFilter === 'draft'
+                      ? 'bg-amber-600 text-white'
+                      : 'bg-[#222222] text-neutral-300 hover:text-white'
+                  }`}
+                >
+                  Drafts ({unpublishedCount})
+                </button>
               </div>
 
-              {selectedIds.length > 0 && (
+              {/* Category Filter Dropdown */}
+              <div className="flex items-center gap-2 text-xs font-oswald">
+                <span className="text-neutral-400 uppercase">Category:</span>
+                <select
+                  value={categoryFilter}
+                  onChange={(e) =>
+                    setCategoryFilter(e.target.value as 'all' | GalleryPredefinedCategory)
+                  }
+                  className="px-3 py-1 rounded bg-[#080808] border border-[#303030] text-white text-xs font-oswald uppercase focus:outline-none focus:border-[#ED101B]"
+                >
+                  <option value="all">All Categories</option>
+                  {GALLERY_PREDEFINED_CATEGORIES.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Bulk Selection Sub-bar */}
+            {filteredItems.length > 0 && (
+              <div className="pt-2 border-t border-[#262626] flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
+                    onClick={() => {
+                      if (selectedIds.length === filteredItems.length) setSelectedIds([]);
+                      else setSelectedIds(filteredItems.map((it) => it.id));
+                    }}
+                    className="px-2.5 py-1 rounded bg-[#222222] text-neutral-300 hover:text-white font-oswald uppercase text-[11px]"
+                  >
+                    {selectedIds.length === filteredItems.length ? 'Deselect All' : 'Select All'}
+                  </button>
+                  <span className="text-neutral-400 text-xs">
+                    {selectedIds.length} of {filteredItems.length} selected
+                  </span>
+                </div>
+
+                {selectedIds.length > 0 && (
+                  <button
+                    type="button"
                     onClick={handlePublish}
-                    className="px-3 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-oswald text-xs font-bold uppercase tracking-wider flex items-center gap-1"
+                    className="px-3 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-oswald text-xs font-bold uppercase tracking-wider flex items-center gap-1 shadow"
                   >
                     <Send className="w-3.5 h-3.5" />
                     <span>Publish Selected ({selectedIds.length})</span>
                   </button>
-                </div>
-              )}
-            </div>
-          )}
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Gallery Media Grid */}
           {isLoading ? (
@@ -590,30 +852,45 @@ export const OwnerGalleryDashboard: React.FC = () => {
               <Loader2 className="w-8 h-8 animate-spin mx-auto text-[#ED101B]" />
               <p className="font-oswald text-xs uppercase tracking-wider">Loading your gym media...</p>
             </div>
-          ) : items.length === 0 ? (
+          ) : filteredItems.length === 0 ? (
             <div className="p-12 text-center rounded-md bg-[#171717] border border-[#303030] space-y-4">
               <div className="w-14 h-14 rounded-full bg-[#ED101B]/15 border border-[#ED101B]/40 text-[#ED101B] flex items-center justify-center mx-auto">
                 <UploadCloud className="w-7 h-7" />
               </div>
               <div>
                 <h3 className="font-display text-2xl font-black uppercase text-white tracking-wide">
-                  NO PHOTOS OR VIDEOS YET
+                  NO MEDIA FOUND
                 </h3>
                 <p className="text-xs sm:text-sm text-neutral-400 max-w-md mx-auto mt-1">
-                  Tap "ADD PHOTOS OR VIDEOS" above to upload training moments, equipment, or facility photos.
+                  {statusFilter !== 'all' || categoryFilter !== 'all'
+                    ? 'No photos or videos match your selected filter criteria.'
+                    : 'Tap "ADD PHOTOS OR VIDEOS" above to upload training moments, equipment, or facility photos.'}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={handleOpenPicker}
-                className="px-6 py-3 rounded bg-[#ED101B] text-white font-oswald text-xs font-black uppercase tracking-wider shadow-md"
-              >
-                ADD FIRST PHOTO OR VIDEO
-              </button>
+              {statusFilter !== 'all' || categoryFilter !== 'all' ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStatusFilter('all');
+                    setCategoryFilter('all');
+                  }}
+                  className="px-4 py-2 rounded bg-[#222222] text-neutral-200 text-xs font-oswald uppercase"
+                >
+                  Reset Filters
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleOpenPicker}
+                  className="px-6 py-3 rounded bg-[#ED101B] text-white font-oswald text-xs font-black uppercase tracking-wider shadow-md"
+                >
+                  ADD FIRST PHOTO OR VIDEO
+                </button>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
-              {items.map((item) => {
+              {filteredItems.map((item) => {
                 const isSelected = selectedIds.includes(item.id);
                 const isVideo = item.mediaType === 'video';
 
@@ -634,15 +911,16 @@ export const OwnerGalleryDashboard: React.FC = () => {
                           preload="metadata"
                         />
                       ) : (
-                        <img
+                        <ImageWithFallback
                           src={item.mediaUrl}
                           alt={item.title || 'Gym Photo'}
+                          category={item.category}
                           className="w-full h-full object-cover"
                           loading="lazy"
                         />
                       )}
 
-                      {/* Video Indicator */}
+                      {/* Video Play Overlay */}
                       {isVideo && (
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                           <div className="w-10 h-10 rounded-full bg-black/70 border border-white/40 flex items-center justify-center text-white">
@@ -665,15 +943,18 @@ export const OwnerGalleryDashboard: React.FC = () => {
                         <Check className="w-4 h-4 stroke-[3]" />
                       </button>
 
-                      {/* Published / Draft Status Pill (Top Right) */}
-                      <div className="absolute top-2.5 right-2.5">
+                      {/* Category Badge & Live/Draft Status Pill (Top Right) */}
+                      <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-oswald font-black uppercase tracking-wider bg-black/85 text-[#ED101B] border border-[#ED101B]/40 shadow">
+                          {item.category}
+                        </span>
                         {item.isPublished ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[10px] font-oswald font-black uppercase tracking-wider bg-emerald-500 text-black shadow">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-oswald font-black uppercase tracking-wider bg-emerald-500 text-black shadow">
                             <Check className="w-3 h-3 stroke-[3]" />
                             <span>LIVE</span>
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[10px] font-oswald font-black uppercase tracking-wider bg-amber-500 text-black shadow animate-pulse">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-oswald font-black uppercase tracking-wider bg-amber-500 text-black shadow animate-pulse">
                             <span>DRAFT</span>
                           </span>
                         )}
@@ -683,35 +964,54 @@ export const OwnerGalleryDashboard: React.FC = () => {
                     {/* Metadata & Controls */}
                     <div className="p-4 space-y-3">
                       <div>
-                        <h4 className="font-bold text-white text-sm truncate">
-                          {item.title || 'Gym Photo'}
-                        </h4>
+                        <div className="flex items-center justify-between gap-2">
+                          <h4 className="font-bold text-white text-sm truncate">
+                            {item.title || 'Gym Photo'}
+                          </h4>
+                        </div>
                         <p className="text-xs text-neutral-400 line-clamp-2 mt-0.5 min-h-[2rem]">
                           {item.caption || <span className="italic text-neutral-600">No caption</span>}
                         </p>
                       </div>
 
                       <div className="pt-2 border-t border-[#262626] flex items-center justify-between text-xs">
-                        <span className="text-[11px] text-neutral-500">
-                          {new Date(item.createdAt).toLocaleDateString('en-IN', {
-                            day: 'numeric',
-                            month: 'short',
-                          })}
-                        </span>
+                        {/* Live / Draft Quick Toggle Button */}
+                        <button
+                          type="button"
+                          onClick={() => handleTogglePublish(item)}
+                          className={`px-2.5 py-1 rounded text-[11px] font-oswald font-bold uppercase tracking-wider flex items-center gap-1 transition-colors ${
+                            item.isPublished
+                              ? 'bg-neutral-800 text-neutral-300 hover:bg-amber-950/50 hover:text-amber-400'
+                              : 'bg-emerald-950/70 border border-emerald-500/50 text-emerald-300 hover:bg-emerald-600 hover:text-white'
+                          }`}
+                          title={item.isPublished ? 'Unpublish from website' : 'Publish immediately to website'}
+                        >
+                          <Power className="w-3 h-3" />
+                          <span>{item.isPublished ? 'Unpublish' : 'Make Live'}</span>
+                        </button>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5">
+                          {/* Edit Category & Caption Button */}
                           <button
                             type="button"
-                            onClick={() => setEditingItem({ id: item.id, caption: item.caption || '' })}
+                            onClick={() =>
+                              setEditingItem({
+                                id: item.id,
+                                title: item.title || 'Gym Media',
+                                category: normalizeGalleryCategory(item.category),
+                                caption: item.caption || '',
+                              })
+                            }
                             className="p-1.5 rounded bg-[#222222] hover:bg-neutral-800 text-neutral-300 hover:text-white"
-                            title="Edit caption"
+                            title="Edit category and caption"
                           >
                             <Edit3 className="w-3.5 h-3.5" />
                           </button>
 
+                          {/* Delete Button */}
                           <button
                             type="button"
-                            onClick={() => handleDelete(item)}
+                            onClick={() => setDeletingItem(item)}
                             className="p-1.5 rounded bg-[#222222] hover:bg-red-500/20 text-neutral-400 hover:text-red-400"
                             title="Delete photo or video"
                           >
@@ -728,18 +1028,58 @@ export const OwnerGalleryDashboard: React.FC = () => {
         </div>
       </main>
 
-      {/* Caption Edit Modal */}
+      {/* Edit Category & Caption Modal */}
       {editingItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-[#171717] border border-[#303030] rounded-md p-6 max-w-md w-full space-y-4 shadow-2xl">
-            <h3 className="font-display text-xl font-black uppercase text-white tracking-wide">
-              Edit Caption
-            </h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
+          <form
+            onSubmit={handleSaveEdit}
+            className="bg-[#171717] border border-[#303030] rounded-md p-6 max-w-md w-full space-y-4 shadow-2xl"
+          >
+            <div className="flex items-center justify-between pb-2 border-b border-[#303030]">
+              <h3 className="font-display text-xl font-black uppercase text-white tracking-wide">
+                Edit Media Details
+              </h3>
+              <button
+                type="button"
+                onClick={() => setEditingItem(null)}
+                className="text-neutral-400 hover:text-white text-lg leading-none"
+              >
+                &times;
+              </button>
+            </div>
 
+            {/* Category Dropdown */}
+            <div>
+              <label
+                htmlFor="editCategorySelect"
+                className="block text-xs font-oswald uppercase text-[#ED101B] font-bold mb-1"
+              >
+                Category *
+              </label>
+              <select
+                id="editCategorySelect"
+                value={editingItem.category}
+                onChange={(e) =>
+                  setEditingItem({
+                    ...editingItem,
+                    category: e.target.value as GalleryPredefinedCategory,
+                  })
+                }
+                className="w-full px-3 py-2 rounded bg-[#080808] border border-[#303030] text-white text-xs font-oswald uppercase focus:outline-none focus:border-[#ED101B]"
+              >
+                {GALLERY_PREDEFINED_CATEGORIES.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Caption Input */}
             <div>
               <label
                 htmlFor="editCaptionInput"
-                className="block text-xs font-oswald uppercase text-neutral-400 mb-1"
+                className="block text-xs font-oswald uppercase text-neutral-400 font-bold mb-1"
               >
                 Caption (Optional)
               </label>
@@ -749,12 +1089,12 @@ export const OwnerGalleryDashboard: React.FC = () => {
                 value={editingItem.caption}
                 onChange={(e) => setEditingItem({ ...editingItem, caption: e.target.value })}
                 placeholder="Add a short caption describing the workout or equipment..."
-                className="w-full px-3 py-2 rounded bg-[#080808] border border-[#303030] text-white text-sm focus:outline-none focus:border-[#ED101B]"
+                className="w-full px-3 py-2 rounded bg-[#080808] border border-[#303030] text-white text-sm focus:outline-none focus:border-[#ED101B] resize-none"
                 autoFocus
               />
             </div>
 
-            <div className="flex items-center justify-end gap-2.5 pt-2">
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-[#303030]">
               <button
                 type="button"
                 onClick={() => setEditingItem(null)}
@@ -763,11 +1103,59 @@ export const OwnerGalleryDashboard: React.FC = () => {
                 Cancel
               </button>
               <button
-                type="button"
-                onClick={handleSaveCaption}
-                className="px-5 py-2 rounded bg-[#ED101B] hover:bg-[#B9000B] text-white text-xs font-oswald font-black uppercase tracking-wider"
+                type="submit"
+                disabled={isUpdating}
+                className="px-5 py-2 rounded bg-[#ED101B] hover:bg-[#B9000B] text-white text-xs font-oswald font-black uppercase tracking-wider disabled:opacity-50 flex items-center gap-1.5"
               >
-                Save Caption
+                {isUpdating && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                <span>Save Changes</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deletingItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
+          <div className="bg-[#171717] border border-[#303030] rounded-md p-6 max-w-md w-full space-y-4 shadow-2xl">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-red-500/15 border border-red-500/40 text-red-400 flex items-center justify-center flex-shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-display text-xl font-black uppercase text-white tracking-wide">
+                  Confirm Delete
+                </h3>
+                <p className="text-xs text-neutral-400">
+                  This action cannot be undone.
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs sm:text-sm text-neutral-300">
+              Are you sure you want to permanently delete{' '}
+              <strong className="text-white">"{deletingItem.title || 'this media'}"</strong>?
+              It will be removed from your website gallery and storage.
+            </p>
+
+            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#303030]">
+              <button
+                type="button"
+                onClick={() => setDeletingItem(null)}
+                disabled={isDeleting}
+                className="px-4 py-2 rounded bg-[#222222] hover:bg-neutral-800 text-neutral-300 text-xs font-oswald uppercase"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                disabled={isDeleting}
+                className="px-5 py-2 rounded bg-red-600 hover:bg-red-700 text-white text-xs font-oswald font-black uppercase tracking-wider disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {isDeleting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                <span>Delete Permanently</span>
               </button>
             </div>
           </div>
@@ -776,4 +1164,3 @@ export const OwnerGalleryDashboard: React.FC = () => {
     </div>
   );
 };
-

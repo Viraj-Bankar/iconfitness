@@ -13,6 +13,7 @@ import {
   Image,
   Power,
   X,
+  RotateCcw,
 } from 'lucide-react';
 import { BrandLogo } from '../components/common/BrandLogo';
 import { getActiveOwnerSession, logoutOwner } from '../services/authService';
@@ -66,12 +67,14 @@ export const OwnerPlansDashboard: React.FC = () => {
 
   const loadPlans = useCallback(async () => {
     setIsLoading(true);
+    setErrorMessage(null);
     try {
       const data = await getOwnerMembershipPlans();
       setPlans(data);
     } catch (err: unknown) {
       console.error('Error loading membership plans:', err);
-      setErrorMessage('Could not load membership plans. Please try again.');
+      const msg = err instanceof Error ? err.message : 'Could not load membership plans. Please try again.';
+      setErrorMessage(msg);
     } finally {
       setIsLoading(false);
     }
@@ -330,18 +333,31 @@ export const OwnerPlansDashboard: React.FC = () => {
         )}
 
         {errorMessage && (
-          <div className="p-4 rounded-md bg-red-500/15 border border-red-500/40 text-red-300 text-xs sm:text-sm flex items-start justify-between gap-3 shadow-lg">
+          <div className="p-4 rounded-md bg-red-500/15 border border-red-500/40 text-red-300 text-xs sm:text-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg">
             <div className="flex items-start gap-2.5">
               <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-              <span className="font-medium">{errorMessage}</span>
+              <div>
+                <span className="font-bold block">Database Loading Error:</span>
+                <span className="text-neutral-300">{errorMessage}</span>
+              </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setErrorMessage(null)}
-              className="text-red-400 hover:text-white text-base leading-none"
-            >
-              &times;
-            </button>
+            <div className="flex items-center gap-2 self-end sm:self-auto">
+              <button
+                type="button"
+                onClick={loadPlans}
+                className="px-3.5 py-1.5 rounded bg-red-600 hover:bg-red-500 text-white font-oswald text-xs uppercase tracking-wider flex items-center gap-1.5 cursor-pointer shadow"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>RETRY</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setErrorMessage(null)}
+                className="text-red-400 hover:text-white text-base leading-none px-1"
+              >
+                &times;
+              </button>
+            </div>
           </div>
         )}
 
