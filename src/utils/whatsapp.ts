@@ -61,6 +61,50 @@ export const MEMBERSHIP_PLAN_OPTIONS: MembershipPlanOption[] = [
   },
 ];
 
+/**
+ * Formats a membership plan into a clean user-facing option label
+ * that includes live pricing (e.g., "1 Month – ₹1,500" or "Student Special (1 Month) – ₹999").
+ */
+export function formatPlanOptionLabel(plan: {
+  name: string;
+  duration: string;
+  price: string;
+  isCouple?: boolean;
+  category?: string;
+}): string {
+  const isCouple = plan.isCouple || plan.category === 'Couple';
+  const nameClean = plan.name.trim();
+  const durationClean = plan.duration.trim();
+  const isGenericName =
+    nameClean.toLowerCase() === durationClean.toLowerCase() ||
+    ['monthly', 'quarterly', 'half yearly', 'yearly'].includes(nameClean.toLowerCase());
+
+  if (isGenericName && !isCouple) {
+    return `${durationClean} – ${plan.price}`;
+  }
+  return `${nameClean} (${durationClean}) – ${plan.price}`;
+}
+
+/**
+ * Converts a dynamic MembershipPlan into a MembershipPlanOption
+ */
+export function toMembershipPlanOption(plan: {
+  id: string;
+  name: string;
+  duration: string;
+  price: string;
+  isCouple?: boolean;
+  category?: string;
+}): MembershipPlanOption {
+  return {
+    id: plan.id,
+    label: formatPlanOptionLabel(plan),
+    name: plan.name,
+    duration: plan.duration,
+    price: plan.price,
+  };
+}
+
 export interface WhatsAppEnquiryData {
   fullName: string;
   phone: string;

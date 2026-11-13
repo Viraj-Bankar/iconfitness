@@ -17,12 +17,16 @@ export interface MembershipPlan {
   duration: string;
   price: string;
   priceFormatted: string;
+  priceNumber?: number;
   featured?: boolean;
   isCouple?: boolean;
   tag?: string;
+  category?: 'Individual' | 'Couple' | 'Group' | string;
   description: string;
   features: string[];
   ctaText: string;
+  isActive?: boolean;
+  displayOrder?: number;
 }
 
 export type GalleryCategory = 'all' | 'interior' | 'equipment' | 'strength' | 'cardio' | 'zumba' | 'yoga' | 'trainers';

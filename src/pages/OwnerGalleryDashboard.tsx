@@ -15,6 +15,8 @@ import {
   Loader2,
   ExternalLink,
   Plus,
+  CreditCard,
+  Image,
 } from 'lucide-react';
 import { BrandLogo } from '../components/common/BrandLogo';
 import { getActiveOwnerSession, logoutOwner } from '../services/authService';
@@ -266,9 +268,28 @@ export const OwnerGalleryDashboard: React.FC = () => {
             <BrandLogo size="sm" showSubtitle={false} />
             <div className="h-4 w-px bg-[#303030] hidden sm:block" />
             <span className="font-oswald text-xs font-bold uppercase tracking-widest text-neutral-300 hidden sm:inline-block">
-              Owner Gallery Portal
+              Owner Management Portal
             </span>
           </div>
+
+          {/* Module Navigation Tabs */}
+          <nav className="flex items-center gap-1.5 bg-[#080808] p-1 rounded border border-[#303030]">
+            <Link
+              to="/admin/gallery"
+              className="px-3 py-1.5 rounded text-xs font-oswald font-black uppercase tracking-wider bg-[#ED101B] text-white transition-colors flex items-center gap-1.5 shadow"
+            >
+              <Image className="w-3.5 h-3.5" />
+              <span>Gallery</span>
+            </Link>
+
+            <Link
+              to="/admin/plans"
+              className="px-3 py-1.5 rounded text-xs font-oswald uppercase tracking-wider text-neutral-400 hover:text-white transition-colors flex items-center gap-1.5"
+            >
+              <CreditCard className="w-3.5 h-3.5" />
+              <span>Membership Plans</span>
+            </Link>
+          </nav>
 
           <div className="flex items-center gap-2.5">
             <Link

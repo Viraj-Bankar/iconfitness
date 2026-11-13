@@ -5,13 +5,17 @@ import type { ContactFormData, MembershipPlan } from '../../types';
 import {
   INTERESTED_IN_OPTIONS,
   MEMBERSHIP_PLAN_OPTIONS,
+  type MembershipPlanOption,
   formatWhatsAppMessage,
   buildWhatsAppUrl,
   openWhatsApp,
   validateIndianMobile,
   mapTopicToInterestedIn,
+  formatPlanOptionLabel,
+  toMembershipPlanOption,
   WHATSAPP_DISPLAY_NUMBER,
 } from '../../utils/whatsapp';
+import { getPublicMembershipPlans } from '../../services/membershipService';
 
 interface EnquiryModalProps {
   isOpen: boolean;
@@ -26,6 +30,7 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
   initialInterest,
   onClose,
 }) => {
+  const [planOptions, setPlanOptions] = useState<MembershipPlanOption[]>(MEMBERSHIP_PLAN_OPTIONS);
   const [formData, setFormData] = useState<ContactFormData>({
     fullName: '',
     phone: '',
@@ -38,31 +43,44 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
   const [isRedirected, setIsRedirected] = useState(false);
   const [generatedWhatsAppUrl, setGeneratedWhatsAppUrl] = useState('');
 
+  // Load dynamic membership plans from Supabase / service
+  useEffect(() => {
+    let isMounted = true;
+    getPublicMembershipPlans()
+      .then((plans) => {
+        if (isMounted && plans && plans.length > 0) {
+          const dynamic = plans.map(toMembershipPlanOption);
+          setPlanOptions(dynamic);
+        }
+      })
+      .catch((err) => {
+        console.warn('Failed to load dynamic plan options for modal:', err);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   // Synchronize incoming plan or interest
   useEffect(() => {
     if (selectedPlan) {
-      // Find matching plan option
-      const matching = MEMBERSHIP_PLAN_OPTIONS.find(
-        (p) =>
-          p.name.toLowerCase() === selectedPlan.name.toLowerCase() ||
-          p.duration.toLowerCase() === selectedPlan.duration.toLowerCase() ||
-          p.price === selectedPlan.price
-      );
+      const planLabel = formatPlanOptionLabel(selectedPlan);
       setFormData((prev) => ({
         ...prev,
         interestedIn: 'Membership',
-        membershipPlan: matching ? matching.label : `${selectedPlan.name} (${selectedPlan.duration} – ${selectedPlan.price})`,
+        membershipPlan: planLabel,
       }));
     } else if (initialInterest) {
       const mapped = mapTopicToInterestedIn(initialInterest);
       setFormData((prev) => ({
         ...prev,
         interestedIn: mapped.interestedIn,
-        membershipPlan: mapped.membershipPlan || prev.membershipPlan || MEMBERSHIP_PLAN_OPTIONS[3].label,
+        membershipPlan: mapped.membershipPlan || prev.membershipPlan || (planOptions[3]?.label ?? MEMBERSHIP_PLAN_OPTIONS[3].label),
         message: mapped.defaultMessage || prev.message || '',
       }));
     }
-  }, [selectedPlan, initialInterest]);
+  }, [selectedPlan, initialInterest, planOptions]);
 
   // Handle ESC and body scroll lock
   useEffect(() => {
@@ -382,7 +400,10 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
                       }}
                       className="w-full px-3 py-2.5 rounded bg-[#080808] border border-[#ED101B]/50 text-white text-xs sm:text-sm focus:outline-none focus:border-[#ED101B]"
                     >
-                      {MEMBERSHIP_PLAN_OPTIONS.map((p) => (
+                      {formData.membershipPlan && !planOptions.some((p) => p.label === formData.membershipPlan) && (
+                        <option value={formData.membershipPlan}>{formData.membershipPlan}</option>
+                      )}
+                      {planOptions.map((p) => (
                         <option key={p.id} value={p.label}>
                           {p.label}
                         </option>

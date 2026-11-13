@@ -15,19 +15,23 @@ import { InstagramIcon } from '../common/InstagramIcon';
 import {
   INTERESTED_IN_OPTIONS,
   MEMBERSHIP_PLAN_OPTIONS,
+  type MembershipPlanOption,
   formatWhatsAppMessage,
   buildWhatsAppUrl,
   openWhatsApp,
   validateIndianMobile,
   mapTopicToInterestedIn,
+  toMembershipPlanOption,
   WHATSAPP_DISPLAY_NUMBER,
 } from '../../utils/whatsapp';
+import { getPublicMembershipPlans } from '../../services/membershipService';
 
 interface ContactProps {
   preselectedOption?: string;
 }
 
 export const Contact: React.FC<ContactProps> = ({ preselectedOption }) => {
+  const [planOptions, setPlanOptions] = useState<MembershipPlanOption[]>(MEMBERSHIP_PLAN_OPTIONS);
   const [formData, setFormData] = useState<ContactFormData>({
     fullName: '',
     phone: '',
@@ -40,17 +44,35 @@ export const Contact: React.FC<ContactProps> = ({ preselectedOption }) => {
   const [isRedirected, setIsRedirected] = useState(false);
   const [generatedWhatsAppUrl, setGeneratedWhatsAppUrl] = useState('');
 
+  // Load dynamic membership plans from Supabase / service
+  useEffect(() => {
+    let isMounted = true;
+    getPublicMembershipPlans()
+      .then((plans) => {
+        if (isMounted && plans && plans.length > 0) {
+          setPlanOptions(plans.map(toMembershipPlanOption));
+        }
+      })
+      .catch((err) => {
+        console.warn('Failed to load dynamic plan options for contact form:', err);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   useEffect(() => {
     if (preselectedOption) {
       const mapped = mapTopicToInterestedIn(preselectedOption);
       setFormData((prev) => ({
         ...prev,
         interestedIn: mapped.interestedIn,
-        membershipPlan: mapped.membershipPlan || prev.membershipPlan || MEMBERSHIP_PLAN_OPTIONS[3].label,
+        membershipPlan: mapped.membershipPlan || prev.membershipPlan || (planOptions[3]?.label ?? MEMBERSHIP_PLAN_OPTIONS[3].label),
         message: mapped.defaultMessage || prev.message || '',
       }));
     }
-  }, [preselectedOption]);
+  }, [preselectedOption, planOptions]);
 
   const validateForm = () => {
     const newErrors: Partial<Record<'fullName' | 'phone' | 'interestedIn' | 'membershipPlan', string>> = {};
@@ -437,7 +459,10 @@ export const Contact: React.FC<ContactProps> = ({ preselectedOption }) => {
                           }}
                           className="w-full px-3 py-2.5 rounded bg-[#080808] border border-[#ED101B]/50 text-white text-xs sm:text-sm focus:outline-none focus:border-[#ED101B]"
                         >
-                          {MEMBERSHIP_PLAN_OPTIONS.map((p) => (
+                          {formData.membershipPlan && !planOptions.some((p) => p.label === formData.membershipPlan) && (
+                            <option value={formData.membershipPlan}>{formData.membershipPlan}</option>
+                          )}
+                          {planOptions.map((p) => (
                             <option key={p.id} value={p.label}>
                               {p.label}
                             </option>
