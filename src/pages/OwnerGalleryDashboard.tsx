@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   UploadCloud,
   Grid,
   Send,
-  LogOut,
   Trash2,
   Edit3,
   Check,
@@ -13,16 +12,13 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
-  ExternalLink,
   Plus,
-  CreditCard,
-  Image,
   Power,
   RotateCcw,
   Tag,
   Filter,
 } from 'lucide-react';
-import { BrandLogo } from '../components/common/BrandLogo';
+import { OwnerDashboardHeader } from '../components/layout/OwnerDashboardHeader';
 import { getActiveOwnerSession, logoutOwner } from '../services/authService';
 import {
   getOwnerGalleryItems,
@@ -369,71 +365,24 @@ export const OwnerGalleryDashboard: React.FC = () => {
         className="hidden"
       />
 
-      {/* Top Bar with Navigation Tabs */}
-      <header className="bg-[#171717] border-b border-[#303030] sticky top-0 z-30 shadow-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <BrandLogo size="sm" showSubtitle={false} />
-            <div className="h-4 w-px bg-[#303030] hidden sm:block" />
-            <span className="font-oswald text-xs font-bold uppercase tracking-widest text-neutral-300 hidden sm:inline-block">
-              Owner Management Portal
-            </span>
-          </div>
-
-          {/* Module Navigation Tabs */}
-          <nav className="flex items-center gap-1.5 bg-[#080808] p-1 rounded border border-[#303030]">
-            <Link
-              to="/admin/gallery"
-              className="px-3 py-1.5 rounded text-xs font-oswald font-black uppercase tracking-wider bg-[#ED101B] text-white transition-colors flex items-center gap-1.5 shadow"
-            >
-              <Image className="w-3.5 h-3.5" />
-              <span>Gallery</span>
-            </Link>
-
-            <Link
-              to="/admin/plans"
-              className="px-3 py-1.5 rounded text-xs font-oswald uppercase tracking-wider text-neutral-400 hover:text-white transition-colors flex items-center gap-1.5"
-            >
-              <CreditCard className="w-3.5 h-3.5" />
-              <span>Membership Plans</span>
-            </Link>
-          </nav>
-
-          <div className="flex items-center gap-2.5">
-            <Link
-              to="/#gallery"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-3 py-1.5 rounded bg-[#222222] hover:bg-neutral-800 text-neutral-300 hover:text-white border border-[#303030] text-xs font-oswald flex items-center gap-1.5 transition-colors"
-              title="View Live Website Gallery"
-            >
-              <span>View Website</span>
-              <ExternalLink className="w-3.5 h-3.5 text-[#ED101B]" />
-            </Link>
-
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="px-3.5 py-1.5 rounded bg-[#ED101B]/15 hover:bg-[#ED101B] text-[#ED101B] hover:text-white border border-[#ED101B]/40 text-xs font-oswald font-black uppercase tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>LOG OUT</span>
-            </button>
-          </div>
-        </div>
-      </header>
+      {/* Shared Responsive Owner Header */}
+      <OwnerDashboardHeader
+        activeModule="gallery"
+        onLogout={handleLogout}
+        unpublishedCount={unpublishedCount}
+      />
 
       {/* Main Container */}
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 w-full pt-8 sm:pt-10 flex-1 space-y-8">
+      <main className="max-w-5xl mx-auto px-3.5 sm:px-6 w-full pt-6 sm:pt-8 md:pt-10 flex-1 space-y-6 sm:space-y-8">
         {/* Simple Dashboard Heading */}
         <div className="space-y-1">
-          <span className="font-oswald text-xs font-bold uppercase tracking-widest text-[#ED101B] block">
+          <span className="font-oswald text-[11px] sm:text-xs font-bold uppercase tracking-widest text-[#ED101B] block">
             OWNER CONTROL PANEL
           </span>
-          <h1 className="font-display text-3xl sm:text-5xl font-black uppercase tracking-tight text-white leading-tight">
+          <h1 className="font-display text-2xl sm:text-4xl md:text-5xl font-black uppercase tracking-tight text-white leading-tight break-words">
             Welcome to ICON FITNESS
           </h1>
-          <p className="text-sm sm:text-base text-[#A1A1A1] font-normal">
+          <p className="text-xs sm:text-sm md:text-base text-[#A1A1A1] font-normal leading-relaxed">
             Manage your gym photos and videos with category assignment and live publishing.
           </p>
         </div>
@@ -485,27 +434,27 @@ export const OwnerGalleryDashboard: React.FC = () => {
         )}
 
         {/* 2 Primary Action Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
           {/* 1. ADD PHOTOS OR VIDEOS */}
           <button
             type="button"
             onClick={handleOpenPicker}
-            className="p-6 rounded-md bg-[#ED101B] hover:bg-[#B9000B] text-white flex items-center justify-between shadow-xl transition-transform active:scale-[0.99] cursor-pointer group"
+            className="p-4 sm:p-5 md:p-6 rounded-md bg-[#ED101B] hover:bg-[#B9000B] text-white flex items-center justify-between shadow-xl transition-transform active:scale-[0.99] cursor-pointer group w-full"
           >
-            <div className="flex items-center gap-4 text-left">
-              <div className="w-13 h-13 rounded-full bg-black/25 flex items-center justify-center flex-shrink-0">
-                <UploadCloud className="w-7 h-7 stroke-[2.5]" />
+            <div className="flex items-center gap-3 sm:gap-4 text-left min-w-0">
+              <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-black/25 flex items-center justify-center flex-shrink-0">
+                <UploadCloud className="w-6 h-6 stroke-[2.5]" />
               </div>
-              <div>
-                <span className="font-display text-xl sm:text-2xl font-black uppercase tracking-wide block">
+              <div className="min-w-0 flex-1">
+                <span className="font-display text-lg sm:text-xl md:text-2xl font-black uppercase tracking-wide block leading-snug break-words">
                   ADD PHOTOS OR VIDEOS
                 </span>
-                <span className="text-xs text-white/80 font-normal">
+                <span className="text-[11px] sm:text-xs text-white/80 font-normal leading-tight mt-0.5 block">
                   Tap to choose from phone gallery or camera
                 </span>
               </div>
             </div>
-            <Plus className="w-6 h-6 stroke-[3] group-hover:rotate-90 transition-transform hidden sm:block" />
+            <Plus className="w-5 h-5 sm:w-6 sm:h-6 stroke-[3] group-hover:rotate-90 transition-transform hidden sm:block flex-shrink-0 ml-2" />
           </button>
 
           {/* 2. PUBLISH TO WEBSITE */}
@@ -513,21 +462,21 @@ export const OwnerGalleryDashboard: React.FC = () => {
             type="button"
             onClick={handlePublish}
             disabled={unpublishedCount === 0 && selectedIds.length === 0}
-            className={`p-6 rounded-md flex items-center justify-between shadow-xl transition-transform active:scale-[0.99] cursor-pointer ${
+            className={`p-4 sm:p-5 md:p-6 rounded-md flex items-center justify-between shadow-xl transition-transform active:scale-[0.99] cursor-pointer w-full ${
               unpublishedCount > 0 || selectedIds.length > 0
                 ? 'bg-emerald-600 hover:bg-emerald-500 text-white animate-pulse'
                 : 'bg-[#171717] border border-[#303030] text-neutral-400 opacity-80 cursor-default'
             }`}
           >
-            <div className="flex items-center gap-4 text-left">
-              <div className="w-13 h-13 rounded-full bg-black/25 flex items-center justify-center flex-shrink-0">
-                <Send className="w-7 h-7 stroke-[2.5]" />
+            <div className="flex items-center gap-3 sm:gap-4 text-left min-w-0">
+              <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-black/25 flex items-center justify-center flex-shrink-0">
+                <Send className="w-6 h-6 stroke-[2.5]" />
               </div>
-              <div>
-                <span className="font-display text-xl sm:text-2xl font-black uppercase tracking-wide block text-white">
+              <div className="min-w-0 flex-1">
+                <span className="font-display text-lg sm:text-xl md:text-2xl font-black uppercase tracking-wide block text-white leading-snug break-words">
                   PUBLISH TO WEBSITE
                 </span>
-                <span className="text-xs text-neutral-300 font-medium">
+                <span className="text-[11px] sm:text-xs text-neutral-300 font-medium leading-tight mt-0.5 block">
                   {unpublishedCount > 0
                     ? `${unpublishedCount} new unpublished ${unpublishedCount === 1 ? 'item' : 'items'} ready`
                     : 'All items are currently live'}
@@ -535,7 +484,7 @@ export const OwnerGalleryDashboard: React.FC = () => {
               </div>
             </div>
             {unpublishedCount > 0 && (
-              <span className="px-3 py-1 rounded-full bg-white text-emerald-800 text-xs font-oswald font-black uppercase">
+              <span className="px-2.5 py-1 rounded-full bg-white text-emerald-800 text-[10px] sm:text-xs font-oswald font-black uppercase flex-shrink-0 ml-2">
                 {unpublishedCount} NEW
               </span>
             )}
@@ -544,10 +493,10 @@ export const OwnerGalleryDashboard: React.FC = () => {
 
         {/* Selected Files Preview Queue & Category Selection */}
         {selectedFiles.length > 0 && (
-          <div className="p-5 sm:p-6 rounded-md bg-[#171717] border-2 border-[#ED101B] space-y-5 shadow-2xl">
+          <div className="p-4 sm:p-6 rounded-md bg-[#171717] border-2 border-[#ED101B] space-y-4 sm:space-y-5 shadow-2xl">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#303030]">
               <div>
-                <h3 className="font-display text-xl sm:text-2xl font-black uppercase text-white tracking-wide flex items-center gap-2">
+                <h3 className="font-display text-lg sm:text-xl md:text-2xl font-black uppercase text-white tracking-wide flex items-center gap-2">
                   <span>Selected for Upload</span>
                   <span className="px-2.5 py-0.5 rounded-full bg-[#ED101B] text-white text-xs font-oswald">
                     {selectedFiles.length}
@@ -558,7 +507,7 @@ export const OwnerGalleryDashboard: React.FC = () => {
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 self-start sm:self-auto">
                 <button
                   type="button"
                   onClick={handleOpenPicker}
@@ -580,18 +529,18 @@ export const OwnerGalleryDashboard: React.FC = () => {
             </div>
 
             {/* Batch Category Selector (Apply one category to all files) */}
-            <div className="p-3.5 rounded bg-[#080808] border border-[#303030] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="p-3 sm:p-3.5 rounded bg-[#080808] border border-[#303030] flex flex-col md:flex-row md:items-center justify-between gap-3">
               <div className="flex items-center gap-2">
-                <Tag className="w-4 h-4 text-[#ED101B]" />
+                <Tag className="w-4 h-4 text-[#ED101B] flex-shrink-0" />
                 <span className="text-xs font-oswald uppercase font-bold text-neutral-300">
                   Batch Category (Apply to all {selectedFiles.length} files):
                 </span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col xs:flex-row items-stretch xs:items-center gap-2 w-full md:w-auto">
                 <select
                   value={batchCategory}
                   onChange={(e) => handleApplyBatchCategory(e.target.value as GalleryPredefinedCategory)}
-                  className="px-3 py-1.5 rounded bg-[#171717] border border-[#ED101B]/50 text-white text-xs font-oswald uppercase focus:outline-none focus:border-[#ED101B]"
+                  className="w-full xs:w-auto px-3 py-1.5 rounded bg-[#171717] border border-[#ED101B]/50 text-white text-xs font-oswald uppercase focus:outline-none focus:border-[#ED101B]"
                 >
                   {GALLERY_PREDEFINED_CATEGORIES.map((cat) => (
                     <option key={cat} value={cat}>
@@ -602,7 +551,7 @@ export const OwnerGalleryDashboard: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => handleApplyBatchCategory(batchCategory)}
-                  className="px-3 py-1.5 rounded bg-[#222222] hover:bg-neutral-700 text-white text-xs font-oswald uppercase font-bold"
+                  className="px-3.5 py-1.5 rounded bg-[#222222] hover:bg-neutral-700 text-white text-xs font-oswald uppercase font-bold text-center"
                 >
                   Apply All
                 </button>
@@ -610,7 +559,7 @@ export const OwnerGalleryDashboard: React.FC = () => {
             </div>
 
             {/* Individual Cards with Preview, Category Selector, and Caption */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
               {selectedFiles.map((item, idx) => (
                 <div
                   key={idx}
@@ -640,7 +589,7 @@ export const OwnerGalleryDashboard: React.FC = () => {
                       </div>
                     )}
 
-                    <span className="absolute top-2 right-9 px-2 py-0.5 rounded bg-black/80 border border-[#303030] text-[#ED101B] text-[10px] font-oswald font-bold uppercase tracking-wider shadow">
+                    <span className="absolute top-2 right-9 px-2 py-0.5 rounded bg-black/80 border border-[#303030] text-[#ED101B] text-[10px] font-oswald font-bold uppercase tracking-wider shadow truncate max-w-[120px]">
                       {item.category}
                     </span>
 
@@ -648,7 +597,7 @@ export const OwnerGalleryDashboard: React.FC = () => {
                       type="button"
                       onClick={() => removeSelectedFile(idx)}
                       aria-label="Remove photo"
-                      className="absolute top-2 right-2 p-1 rounded-full bg-black/80 text-white hover:bg-[#ED101B] transition-colors"
+                      className="absolute top-2 right-2 p-1.5 rounded-full bg-black/80 text-white hover:bg-[#ED101B] transition-colors"
                       title="Remove from upload"
                     >
                       <X className="w-3.5 h-3.5" />
@@ -693,12 +642,12 @@ export const OwnerGalleryDashboard: React.FC = () => {
             </div>
 
             {/* Upload Button & Progress Bar */}
-            <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
               <button
                 type="button"
                 onClick={handleUploadAll}
                 disabled={isUploading}
-                className="w-full sm:w-auto px-8 py-3.5 rounded bg-[#ED101B] hover:bg-[#B9000B] text-white font-oswald text-xs font-black uppercase tracking-wider transition-colors flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 cursor-pointer"
+                className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-3.5 rounded bg-[#ED101B] hover:bg-[#B9000B] text-white font-oswald text-xs font-black uppercase tracking-wider transition-colors flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 cursor-pointer"
               >
                 {isUploading ? (
                   <>
@@ -713,7 +662,7 @@ export const OwnerGalleryDashboard: React.FC = () => {
                 )}
               </button>
 
-              <span className="text-xs text-neutral-400">
+              <span className="text-[11px] sm:text-xs text-neutral-400 text-center sm:text-right">
                 Uploaded items will be saved as drafts ready to publish.
               </span>
             </div>
@@ -730,20 +679,20 @@ export const OwnerGalleryDashboard: React.FC = () => {
         )}
 
         {/* MY GALLERY SECTION */}
-        <div className="space-y-5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#303030]">
-            <div className="flex items-center gap-2.5">
+        <div className="space-y-4 sm:space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 pb-3 border-b border-[#303030]">
+            <div className="flex items-center gap-2 sm:gap-2.5">
               <Grid className="w-5 h-5 text-[#ED101B]" />
-              <h2 className="font-display text-2xl font-black uppercase text-white tracking-wide">
+              <h2 className="font-display text-xl sm:text-2xl font-black uppercase text-white tracking-wide">
                 MY GALLERY ({items.length})
               </h2>
             </div>
 
-            <div className="flex items-center gap-3 text-xs font-oswald">
+            <div className="flex items-center gap-2.5 sm:gap-3 text-xs font-oswald flex-wrap">
               <span className="text-emerald-400 font-bold">
                 ● {publishedCount} Live on Website
               </span>
-              <span className="text-neutral-500">•</span>
+              <span className="text-neutral-500 hidden sm:inline">•</span>
               <span className="text-amber-400 font-bold">
                 ● {unpublishedCount} Unpublished Drafts
               </span>
@@ -751,17 +700,17 @@ export const OwnerGalleryDashboard: React.FC = () => {
           </div>
 
           {/* Filter Bar: Status & Category */}
-          <div className="p-3.5 rounded-md bg-[#171717] border border-[#303030] space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="p-3 sm:p-3.5 rounded-md bg-[#171717] border border-[#303030] space-y-3">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
               {/* Status Filter Pills */}
-              <div className="flex items-center gap-1.5 text-xs font-oswald">
+              <div className="flex flex-wrap items-center gap-1.5 text-xs font-oswald">
                 <span className="text-neutral-400 uppercase mr-1 flex items-center gap-1">
                   <Filter className="w-3.5 h-3.5 text-[#ED101B]" /> Status:
                 </span>
                 <button
                   type="button"
                   onClick={() => setStatusFilter('all')}
-                  className={`px-3 py-1 rounded uppercase font-bold transition-colors ${
+                  className={`px-2.5 sm:px-3 py-1.5 rounded uppercase font-bold transition-colors ${
                     statusFilter === 'all'
                       ? 'bg-[#ED101B] text-white'
                       : 'bg-[#222222] text-neutral-300 hover:text-white'
@@ -772,7 +721,7 @@ export const OwnerGalleryDashboard: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setStatusFilter('live')}
-                  className={`px-3 py-1 rounded uppercase font-bold transition-colors ${
+                  className={`px-2.5 sm:px-3 py-1.5 rounded uppercase font-bold transition-colors ${
                     statusFilter === 'live'
                       ? 'bg-emerald-600 text-white'
                       : 'bg-[#222222] text-neutral-300 hover:text-white'
@@ -783,7 +732,7 @@ export const OwnerGalleryDashboard: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setStatusFilter('draft')}
-                  className={`px-3 py-1 rounded uppercase font-bold transition-colors ${
+                  className={`px-2.5 sm:px-3 py-1.5 rounded uppercase font-bold transition-colors ${
                     statusFilter === 'draft'
                       ? 'bg-amber-600 text-white'
                       : 'bg-[#222222] text-neutral-300 hover:text-white'
@@ -794,14 +743,14 @@ export const OwnerGalleryDashboard: React.FC = () => {
               </div>
 
               {/* Category Filter Dropdown */}
-              <div className="flex items-center gap-2 text-xs font-oswald">
-                <span className="text-neutral-400 uppercase">Category:</span>
+              <div className="flex items-center justify-between md:justify-start gap-2 text-xs font-oswald w-full md:w-auto">
+                <span className="text-neutral-400 uppercase flex-shrink-0">Category:</span>
                 <select
                   value={categoryFilter}
                   onChange={(e) =>
                     setCategoryFilter(e.target.value as 'all' | GalleryPredefinedCategory)
                   }
-                  className="px-3 py-1 rounded bg-[#080808] border border-[#303030] text-white text-xs font-oswald uppercase focus:outline-none focus:border-[#ED101B]"
+                  className="flex-1 md:flex-none px-3 py-1.5 rounded bg-[#080808] border border-[#303030] text-white text-xs font-oswald uppercase focus:outline-none focus:border-[#ED101B]"
                 >
                   <option value="all">All Categories</option>
                   {GALLERY_PREDEFINED_CATEGORIES.map((cat) => (
@@ -889,7 +838,7 @@ export const OwnerGalleryDashboard: React.FC = () => {
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
               {filteredItems.map((item) => {
                 const isSelected = selectedIds.includes(item.id);
                 const isVideo = item.mediaType === 'video';
@@ -933,7 +882,7 @@ export const OwnerGalleryDashboard: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => toggleSelect(item.id)}
-                        className={`absolute top-2.5 left-2.5 w-6 h-6 rounded flex items-center justify-center transition-colors shadow ${
+                        className={`absolute top-2.5 left-2.5 w-6 h-6 rounded flex items-center justify-center transition-colors shadow z-10 ${
                           isSelected
                             ? 'bg-[#ED101B] text-white'
                             : 'bg-black/70 border border-white/60 text-transparent hover:border-white'
@@ -944,17 +893,17 @@ export const OwnerGalleryDashboard: React.FC = () => {
                       </button>
 
                       {/* Category Badge & Live/Draft Status Pill (Top Right) */}
-                      <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-oswald font-black uppercase tracking-wider bg-black/85 text-[#ED101B] border border-[#ED101B]/40 shadow">
+                      <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 max-w-[calc(100%-40px)] z-10">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-oswald font-black uppercase tracking-wider bg-black/85 text-[#ED101B] border border-[#ED101B]/40 shadow truncate max-w-[110px] sm:max-w-[130px]">
                           {item.category}
                         </span>
                         {item.isPublished ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-oswald font-black uppercase tracking-wider bg-emerald-500 text-black shadow">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-oswald font-black uppercase tracking-wider bg-emerald-500 text-black shadow flex-shrink-0">
                             <Check className="w-3 h-3 stroke-[3]" />
                             <span>LIVE</span>
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-oswald font-black uppercase tracking-wider bg-amber-500 text-black shadow animate-pulse">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-oswald font-black uppercase tracking-wider bg-amber-500 text-black shadow animate-pulse flex-shrink-0">
                             <span>DRAFT</span>
                           </span>
                         )}
@@ -962,7 +911,7 @@ export const OwnerGalleryDashboard: React.FC = () => {
                     </div>
 
                     {/* Metadata & Controls */}
-                    <div className="p-4 space-y-3">
+                    <div className="p-3.5 sm:p-4 space-y-3">
                       <div>
                         <div className="flex items-center justify-between gap-2">
                           <h4 className="font-bold text-white text-sm truncate">
@@ -974,12 +923,12 @@ export const OwnerGalleryDashboard: React.FC = () => {
                         </p>
                       </div>
 
-                      <div className="pt-2 border-t border-[#262626] flex items-center justify-between text-xs">
+                      <div className="pt-2 border-t border-[#262626] flex items-center justify-between text-xs gap-1.5">
                         {/* Live / Draft Quick Toggle Button */}
                         <button
                           type="button"
                           onClick={() => handleTogglePublish(item)}
-                          className={`px-2.5 py-1 rounded text-[11px] font-oswald font-bold uppercase tracking-wider flex items-center gap-1 transition-colors ${
+                          className={`px-2.5 py-1.5 rounded text-[11px] font-oswald font-bold uppercase tracking-wider flex items-center gap-1 transition-colors ${
                             item.isPublished
                               ? 'bg-neutral-800 text-neutral-300 hover:bg-amber-950/50 hover:text-amber-400'
                               : 'bg-emerald-950/70 border border-emerald-500/50 text-emerald-300 hover:bg-emerald-600 hover:text-white'
@@ -1002,7 +951,7 @@ export const OwnerGalleryDashboard: React.FC = () => {
                                 caption: item.caption || '',
                               })
                             }
-                            className="p-1.5 rounded bg-[#222222] hover:bg-neutral-800 text-neutral-300 hover:text-white"
+                            className="p-2 rounded bg-[#222222] hover:bg-neutral-800 text-neutral-300 hover:text-white min-w-[32px] min-h-[32px] flex items-center justify-center cursor-pointer"
                             title="Edit category and caption"
                           >
                             <Edit3 className="w-3.5 h-3.5" />
@@ -1012,7 +961,7 @@ export const OwnerGalleryDashboard: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => setDeletingItem(item)}
-                            className="p-1.5 rounded bg-[#222222] hover:bg-red-500/20 text-neutral-400 hover:text-red-400"
+                            className="p-2 rounded bg-[#222222] hover:bg-red-500/20 text-neutral-400 hover:text-red-400 min-w-[32px] min-h-[32px] flex items-center justify-center cursor-pointer"
                             title="Delete photo or video"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -1030,10 +979,10 @@ export const OwnerGalleryDashboard: React.FC = () => {
 
       {/* Edit Category & Caption Modal */}
       {editingItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-sm overflow-y-auto">
           <form
             onSubmit={handleSaveEdit}
-            className="bg-[#171717] border border-[#303030] rounded-md p-6 max-w-md w-full space-y-4 shadow-2xl"
+            className="bg-[#171717] border border-[#303030] rounded-md p-4 sm:p-6 max-w-md w-full space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto my-auto"
           >
             <div className="flex items-center justify-between pb-2 border-b border-[#303030]">
               <h3 className="font-display text-xl font-black uppercase text-white tracking-wide">
@@ -1042,7 +991,7 @@ export const OwnerGalleryDashboard: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setEditingItem(null)}
-                className="text-neutral-400 hover:text-white text-lg leading-none"
+                className="text-neutral-400 hover:text-white text-lg leading-none p-1 cursor-pointer"
               >
                 &times;
               </button>
@@ -1098,14 +1047,14 @@ export const OwnerGalleryDashboard: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setEditingItem(null)}
-                className="px-4 py-2 rounded bg-[#222222] text-neutral-300 text-xs font-oswald uppercase"
+                className="px-4 py-2 rounded bg-[#222222] text-neutral-300 text-xs font-oswald uppercase cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isUpdating}
-                className="px-5 py-2 rounded bg-[#ED101B] hover:bg-[#B9000B] text-white text-xs font-oswald font-black uppercase tracking-wider disabled:opacity-50 flex items-center gap-1.5"
+                className="px-5 py-2 rounded bg-[#ED101B] hover:bg-[#B9000B] text-white text-xs font-oswald font-black uppercase tracking-wider disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow"
               >
                 {isUpdating && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                 <span>Save Changes</span>
@@ -1117,8 +1066,8 @@ export const OwnerGalleryDashboard: React.FC = () => {
 
       {/* Delete Confirmation Modal */}
       {deletingItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
-          <div className="bg-[#171717] border border-[#303030] rounded-md p-6 max-w-md w-full space-y-4 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-[#171717] border border-[#303030] rounded-md p-4 sm:p-6 max-w-md w-full space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto my-auto">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-red-500/15 border border-red-500/40 text-red-400 flex items-center justify-center flex-shrink-0">
                 <Trash2 className="w-5 h-5" />
@@ -1144,7 +1093,7 @@ export const OwnerGalleryDashboard: React.FC = () => {
                 type="button"
                 onClick={() => setDeletingItem(null)}
                 disabled={isDeleting}
-                className="px-4 py-2 rounded bg-[#222222] hover:bg-neutral-800 text-neutral-300 text-xs font-oswald uppercase"
+                className="px-4 py-2 rounded bg-[#222222] hover:bg-neutral-800 text-neutral-300 text-xs font-oswald uppercase cursor-pointer"
               >
                 Cancel
               </button>
@@ -1152,7 +1101,7 @@ export const OwnerGalleryDashboard: React.FC = () => {
                 type="button"
                 onClick={handleConfirmDelete}
                 disabled={isDeleting}
-                className="px-5 py-2 rounded bg-red-600 hover:bg-red-700 text-white text-xs font-oswald font-black uppercase tracking-wider disabled:opacity-50 flex items-center gap-1.5"
+                className="px-5 py-2 rounded bg-red-600 hover:bg-red-700 text-white text-xs font-oswald font-black uppercase tracking-wider disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow"
               >
                 {isDeleting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                 <span>Delete Permanently</span>

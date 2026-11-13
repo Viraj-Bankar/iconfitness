@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   CreditCard,
   Plus,
@@ -8,14 +8,11 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
-  ExternalLink,
-  LogOut,
-  Image,
   Power,
   X,
   RotateCcw,
 } from 'lucide-react';
-import { BrandLogo } from '../components/common/BrandLogo';
+import { OwnerDashboardHeader } from '../components/layout/OwnerDashboardHeader';
 import { getActiveOwnerSession, logoutOwner } from '../services/authService';
 import {
   getOwnerMembershipPlans,
@@ -235,72 +232,24 @@ export const OwnerPlansDashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#080808] text-white flex flex-col pb-16">
-      {/* Top Bar with Navigation Tabs */}
-      <header className="bg-[#171717] border-b border-[#303030] sticky top-0 z-30 shadow-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <BrandLogo size="sm" showSubtitle={false} />
-            <div className="h-4 w-px bg-[#303030] hidden sm:block" />
-            <span className="font-oswald text-xs font-bold uppercase tracking-widest text-neutral-300 hidden sm:inline-block">
-              Owner Management Portal
-            </span>
-          </div>
-
-          {/* Module Navigation Tabs */}
-          <nav className="flex items-center gap-1.5 bg-[#080808] p-1 rounded border border-[#303030]">
-            <Link
-              to="/admin/gallery"
-              className="px-3 py-1.5 rounded text-xs font-oswald uppercase tracking-wider text-neutral-400 hover:text-white transition-colors flex items-center gap-1.5"
-            >
-              <Image className="w-3.5 h-3.5" />
-              <span>Gallery</span>
-            </Link>
-
-            <Link
-              to="/admin/plans"
-              className="px-3 py-1.5 rounded text-xs font-oswald font-black uppercase tracking-wider bg-[#ED101B] text-white transition-colors flex items-center gap-1.5 shadow"
-            >
-              <CreditCard className="w-3.5 h-3.5" />
-              <span>Membership Plans</span>
-            </Link>
-          </nav>
-
-          <div className="flex items-center gap-2.5">
-            <Link
-              to="/#membership"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-3 py-1.5 rounded bg-[#222222] hover:bg-neutral-800 text-neutral-300 hover:text-white border border-[#303030] text-xs font-oswald flex items-center gap-1.5 transition-colors"
-              title="View Live Website Membership Section"
-            >
-              <span>View Website</span>
-              <ExternalLink className="w-3.5 h-3.5 text-[#ED101B]" />
-            </Link>
-
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="px-3.5 py-1.5 rounded bg-[#ED101B]/15 hover:bg-[#ED101B] text-[#ED101B] hover:text-white border border-[#ED101B]/40 text-xs font-oswald font-black uppercase tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>LOG OUT</span>
-            </button>
-          </div>
-        </div>
-      </header>
+      {/* Shared Responsive Owner Header */}
+      <OwnerDashboardHeader
+        activeModule="plans"
+        onLogout={handleLogout}
+      />
 
       {/* Main Container */}
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 w-full pt-8 sm:pt-10 flex-1 space-y-8">
+      <main className="max-w-5xl mx-auto px-3.5 sm:px-6 w-full pt-6 sm:pt-8 md:pt-10 flex-1 space-y-6 sm:space-y-8">
         {/* Page Title & Add Plan Action */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
           <div className="space-y-1">
-            <span className="font-oswald text-xs font-bold uppercase tracking-widest text-[#ED101B] block">
+            <span className="font-oswald text-[11px] sm:text-xs font-bold uppercase tracking-widest text-[#ED101B] block">
               MEMBERSHIP PLAN MANAGEMENT
             </span>
-            <h1 className="font-display text-3xl sm:text-5xl font-black uppercase tracking-tight text-white leading-tight">
+            <h1 className="font-display text-2xl sm:text-4xl md:text-5xl font-black uppercase tracking-tight text-white leading-tight break-words">
               Manage Pricing &amp; Plans
             </h1>
-            <p className="text-sm sm:text-base text-[#A1A1A1] font-normal">
+            <p className="text-xs sm:text-sm md:text-base text-[#A1A1A1] font-normal leading-relaxed">
               Changes updated here immediately update the live website and WhatsApp enquiry rates.
             </p>
           </div>
@@ -308,7 +257,7 @@ export const OwnerPlansDashboard: React.FC = () => {
           <button
             type="button"
             onClick={handleOpenCreateModal}
-            className="px-6 py-3.5 rounded-md bg-[#ED101B] hover:bg-[#B9000B] text-white font-oswald text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-xl transition-transform active:scale-[0.99] cursor-pointer"
+            className="w-full sm:w-auto px-6 py-3 sm:py-3.5 rounded-md bg-[#ED101B] hover:bg-[#B9000B] text-white font-oswald text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-xl transition-transform active:scale-[0.99] cursor-pointer"
           >
             <Plus className="w-4 h-4 stroke-[3]" />
             <span>ADD NEW PLAN</span>
@@ -362,35 +311,35 @@ export const OwnerPlansDashboard: React.FC = () => {
         )}
 
         {/* Quick Stats / Summary Counters */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="p-4 rounded bg-[#171717] border border-[#303030] space-y-1">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
+          <div className="p-3 sm:p-4 rounded bg-[#171717] border border-[#303030] space-y-1">
             <span className="text-[10px] font-oswald uppercase text-neutral-400 tracking-wider">Total Plans</span>
-            <div className="font-display text-2xl font-black text-white">{plans.length}</div>
+            <div className="font-display text-xl sm:text-2xl md:text-3xl font-black text-white">{plans.length}</div>
           </div>
-          <div className="p-4 rounded bg-[#171717] border border-[#303030] space-y-1">
+          <div className="p-3 sm:p-4 rounded bg-[#171717] border border-[#303030] space-y-1">
             <span className="text-[10px] font-oswald uppercase text-emerald-400 tracking-wider">Live Active</span>
-            <div className="font-display text-2xl font-black text-emerald-400">{activeCount}</div>
+            <div className="font-display text-xl sm:text-2xl md:text-3xl font-black text-emerald-400">{activeCount}</div>
           </div>
-          <div className="p-4 rounded bg-[#171717] border border-[#303030] space-y-1">
+          <div className="p-3 sm:p-4 rounded bg-[#171717] border border-[#303030] space-y-1">
             <span className="text-[10px] font-oswald uppercase text-amber-400 tracking-wider">Inactive Drafts</span>
-            <div className="font-display text-2xl font-black text-amber-400">{inactiveCount}</div>
+            <div className="font-display text-xl sm:text-2xl md:text-3xl font-black text-amber-400">{inactiveCount}</div>
           </div>
-          <div className="p-4 rounded bg-[#171717] border border-[#303030] space-y-1">
+          <div className="p-3 sm:p-4 rounded bg-[#171717] border border-[#303030] space-y-1">
             <span className="text-[10px] font-oswald uppercase text-neutral-400 tracking-wider">Sync Status</span>
-            <div className="text-xs font-oswald uppercase text-emerald-400 flex items-center gap-1.5 mt-1 font-bold">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>Live Synced</span>
+            <div className="text-[11px] sm:text-xs font-oswald uppercase text-emerald-400 flex items-center gap-1.5 mt-1 font-bold">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" />
+              <span className="truncate">Live Synced</span>
             </div>
           </div>
         </div>
 
         {/* Filter Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded bg-[#171717] border border-[#303030]">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 rounded bg-[#171717] border border-[#303030]">
           <div className="flex items-center gap-1.5 flex-wrap">
             <button
               type="button"
               onClick={() => setStatusFilter('all')}
-              className={`px-3 py-1.5 rounded text-xs font-oswald font-bold uppercase tracking-wider transition-colors ${
+              className={`px-2.5 sm:px-3 py-1.5 rounded text-xs font-oswald font-bold uppercase tracking-wider transition-colors ${
                 statusFilter === 'all'
                   ? 'bg-white text-black'
                   : 'bg-[#222222] text-neutral-400 hover:text-white'
@@ -401,7 +350,7 @@ export const OwnerPlansDashboard: React.FC = () => {
             <button
               type="button"
               onClick={() => setStatusFilter('active')}
-              className={`px-3 py-1.5 rounded text-xs font-oswald font-bold uppercase tracking-wider transition-colors ${
+              className={`px-2.5 sm:px-3 py-1.5 rounded text-xs font-oswald font-bold uppercase tracking-wider transition-colors ${
                 statusFilter === 'active'
                   ? 'bg-emerald-600 text-white'
                   : 'bg-[#222222] text-neutral-400 hover:text-white'
@@ -412,7 +361,7 @@ export const OwnerPlansDashboard: React.FC = () => {
             <button
               type="button"
               onClick={() => setStatusFilter('inactive')}
-              className={`px-3 py-1.5 rounded text-xs font-oswald font-bold uppercase tracking-wider transition-colors ${
+              className={`px-2.5 sm:px-3 py-1.5 rounded text-xs font-oswald font-bold uppercase tracking-wider transition-colors ${
                 statusFilter === 'inactive'
                   ? 'bg-amber-600 text-white'
                   : 'bg-[#222222] text-neutral-400 hover:text-white'
@@ -422,12 +371,12 @@ export const OwnerPlansDashboard: React.FC = () => {
             </button>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-oswald text-neutral-400 uppercase">Category:</span>
+          <div className="flex items-center justify-between md:justify-start gap-2 w-full md:w-auto">
+            <span className="text-xs font-oswald text-neutral-400 uppercase flex-shrink-0">Category:</span>
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value as any)}
-              className="px-2.5 py-1.5 rounded bg-[#080808] border border-[#303030] text-white text-xs font-oswald focus:outline-none focus:border-[#ED101B]"
+              className="flex-1 md:flex-none px-2.5 py-1.5 rounded bg-[#080808] border border-[#303030] text-white text-xs font-oswald focus:outline-none focus:border-[#ED101B]"
             >
               <option value="all">All Categories</option>
               <option value="Individual">Individual</option>
@@ -473,13 +422,13 @@ export const OwnerPlansDashboard: React.FC = () => {
               return (
                 <div
                   key={plan.id}
-                  className={`rounded-md p-6 bg-[#171717] border flex flex-col justify-between space-y-4 transition-colors ${
+                  className={`rounded-md p-4 sm:p-6 bg-[#171717] border flex flex-col justify-between space-y-4 transition-colors ${
                     plan.isActive ? 'border-[#303030] hover:border-neutral-500' : 'border-neutral-800 opacity-70'
                   }`}
                 >
                   <div className="space-y-3">
-                    {/* Top Row: Category Badge + Status Badge */}
-                    <div className="flex items-center justify-between gap-2">
+                    {/* Top Row: Category Badge + Order + Status Badge */}
+                    <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
                         <span
                           className={`px-2 py-0.5 rounded text-[10px] font-oswald font-black uppercase tracking-widest ${
@@ -500,7 +449,7 @@ export const OwnerPlansDashboard: React.FC = () => {
 
                       {/* Active Status Badge */}
                       <span
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-oswald font-black uppercase tracking-wider ${
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-oswald font-black uppercase tracking-wider flex-shrink-0 ${
                           plan.isActive
                             ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
                             : 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
@@ -513,17 +462,17 @@ export const OwnerPlansDashboard: React.FC = () => {
 
                     {/* Plan Title & Duration */}
                     <div>
-                      <h3 className="font-display text-2xl font-black uppercase text-white tracking-wide">
+                      <h3 className="font-display text-xl sm:text-2xl font-black uppercase text-white tracking-wide break-words">
                         {plan.name}
                       </h3>
-                      <p className="font-oswald text-xs text-neutral-400 uppercase tracking-wider">
+                      <p className="font-oswald text-xs text-neutral-400 uppercase tracking-wider mt-0.5">
                         Duration: <span className="text-white font-bold">{plan.duration}</span>
                       </p>
                     </div>
 
                     {/* Price Display */}
-                    <div className="py-2 border-y border-[#262626] flex items-baseline gap-2">
-                      <span className="font-display text-4xl font-black text-[#ED101B]">
+                    <div className="py-2 border-y border-[#262626] flex items-baseline gap-2 flex-wrap">
+                      <span className="font-display text-3xl sm:text-4xl font-black text-[#ED101B]">
                         ₹{Number(plan.price).toLocaleString('en-IN')}
                       </span>
                       <span className="text-xs text-neutral-500 font-oswald uppercase">
@@ -540,7 +489,7 @@ export const OwnerPlansDashboard: React.FC = () => {
                   </div>
 
                   {/* Actions Bar */}
-                  <div className="pt-3 border-t border-[#262626] flex items-center justify-between gap-2">
+                  <div className="pt-3 border-t border-[#262626] flex flex-wrap items-center justify-between gap-2 text-xs">
                     <span className="text-[10px] text-neutral-500">
                       Updated: {new Date(plan.updatedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                     </span>
@@ -565,7 +514,7 @@ export const OwnerPlansDashboard: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => handleOpenEditModal(plan)}
-                        className="p-1.5 rounded bg-[#222222] hover:bg-neutral-800 text-neutral-300 hover:text-white transition-colors cursor-pointer"
+                        className="p-2 rounded bg-[#222222] hover:bg-neutral-800 text-neutral-300 hover:text-white transition-colors cursor-pointer min-w-[32px] min-h-[32px] flex items-center justify-center"
                         title="Edit Plan"
                       >
                         <Edit3 className="w-3.5 h-3.5" />
@@ -575,7 +524,7 @@ export const OwnerPlansDashboard: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setDeletingPlan(plan)}
-                        className="p-1.5 rounded bg-[#222222] hover:bg-red-500/20 text-neutral-400 hover:text-red-400 transition-colors cursor-pointer"
+                        className="p-2 rounded bg-[#222222] hover:bg-red-500/20 text-neutral-400 hover:text-red-400 transition-colors cursor-pointer min-w-[32px] min-h-[32px] flex items-center justify-center"
                         title="Delete Plan"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -591,8 +540,8 @@ export const OwnerPlansDashboard: React.FC = () => {
 
       {/* Create / Edit Plan Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-[#171717] border border-[#303030] rounded-md p-6 max-w-lg w-full space-y-5 shadow-2xl my-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-[#171717] border border-[#303030] rounded-md p-4 sm:p-6 max-w-lg w-full space-y-4 sm:space-y-5 shadow-2xl my-auto max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-[#303030]">
               <div className="flex items-center gap-2.5">
                 <div className="w-7 h-7 rounded bg-[#ED101B]/15 text-[#ED101B] flex items-center justify-center">
@@ -764,8 +713,8 @@ export const OwnerPlansDashboard: React.FC = () => {
 
       {/* Delete Confirmation Modal */}
       {deletingPlan && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-[#171717] border border-[#303030] rounded-md p-6 max-w-md w-full space-y-4 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-[#171717] border border-[#303030] rounded-md p-4 sm:p-6 max-w-md w-full space-y-4 shadow-2xl my-auto">
             <div className="w-12 h-12 rounded-full bg-red-500/15 text-red-400 border border-red-500/40 flex items-center justify-center mx-auto">
               <Trash2 className="w-6 h-6" />
             </div>

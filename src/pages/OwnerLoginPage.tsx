@@ -52,7 +52,7 @@ export const OwnerLoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#080808] text-white flex flex-col justify-between p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-[#080808] text-white flex flex-col justify-between p-3.5 sm:p-6 lg:p-8">
       {/* Top Header */}
       <div className="max-w-md mx-auto w-full flex items-center justify-between pt-2 pb-6">
         <Link
@@ -70,8 +70,8 @@ export const OwnerLoginPage: React.FC = () => {
       </div>
 
       {/* Login Card */}
-      <div className="max-w-md mx-auto w-full">
-        <div className="p-7 sm:p-9 rounded-md bg-[#171717] border border-[#303030] shadow-2xl space-y-6">
+      <div className="max-w-md mx-auto w-full my-auto">
+        <div className="p-5 sm:p-9 rounded-md bg-[#171717] border border-[#303030] shadow-2xl space-y-6">
           <div className="text-center space-y-3">
             <div className="flex justify-center">
               <BrandLogo size="md" />
